@@ -8,7 +8,11 @@ simple description.
 
  - Philip "5n4k3" Simonson
 
-### Scripts
+## Notes
+
+ - Old scripts work but the latest scripts work perfect all the time.
+
+### Scripts (Latest)
 
  - zip.src - Script for storing in-game scripts in /src directory all in one file.
 
@@ -30,5 +34,7 @@ simple description.
 
  - routernuke.src - Script for trying all exploits against given router.
 
- - decipher.src - Better decipher program than original.
+ - decrypt.src - Better decipher program than original.
+
+ - viruswipe.src - Simple virus to render a machine useless in Grey Hack.
 

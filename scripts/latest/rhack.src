@@ -9,9 +9,11 @@ if params.len == 4 then
 	password = params[3]
 end if
 
-crypto = include_lib("/lib/crypto.so")
-if not crypto then crypto = include_lib(current_path + "/crypto.so")
-if not crypto then exit("Error: Can't find crypto.so")
+cryptools = include_lib("/lib/crypto.so")
+if not cryptools then
+	cryptools = include_lib(current_path + "/crypto.so")
+end if
+if not cryptools then exit("Error: Can't find crypto.so")
 
 mx = include_lib("/lib/metaxploit.so")
 if not mx then mx = include_lib(current_path + "/metaxploit.so")
@@ -24,18 +26,19 @@ if not lib then exit("Error: Can't dump library")
 print("Running all exploits on " + address + "...")
 print("Library: " + lib.lib_name + ":" + lib.version)
 
-decrypt = function(userPass)
-	if userPass.len != 2 then exit("Error: wrong syntax")
-	password = crypto.decipher(userPass)
-	return [pass[0], password]
-end function
-
 quit = function(shell, pass)
+	GetPassword = function(userPass)
+		if userPass.len != 2 then exit("Error: wrong syntax")
+		password = cryptools.decipher(userPass[1])
+		return [userPass[0], password]
+	end function
+	
 	if params[2].val == 0 then
-		result = decrypt(pass)
+		userPass = pass.split(":")
+		result = GetPassword(userPass)
 		print("User: " + result[0] + "\nPassword: " + result[1])
 	else
-		print("Password data below:\n------------------------\n" + pass + "\n")
+		print("Password data below:\n" + pass)
 	end if
 	shell.start_terminal
 end function
@@ -89,7 +92,7 @@ for mem in memory
 			cont = result.get_content
 			if not cont then continue
 			pass = cont.split("\n")[0]
-			if shell then quit(shell, pass)
+			if shell and pass then quit(shell, pass)
 		end if
 
 		// Some checks for password file

@@ -1,9 +1,9 @@
-//command: decipher
+//command: decrypt
 cryptools = include_lib("/lib/crypto.so")
 if not cryptools then exit("Error: Missing crypto library")
 
 GetPassword = function(userPass)
-	if userPass.len != 2 then exit("decipher: " + file.path + " wrong syntax")
+	if userPass.len != 2 then exit("decipher: wrong syntax")
 	password = cryptools.decipher(userPass[1])
 	return password
 end function

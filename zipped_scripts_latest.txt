@@ -172,9 +172,11 @@ if params.len == 4 then
 	password = params[3]
 end if
 
-crypto = include_lib("/lib/crypto.so")
-if not crypto then crypto = include_lib(current_path + "/crypto.so")
-if not crypto then exit("Error: Can't find crypto.so")
+cryptools = include_lib("/lib/crypto.so")
+if not cryptools then
+	cryptools = include_lib(current_path + "/crypto.so")
+end if
+if not cryptools then exit("Error: Can't find crypto.so")
 
 mx = include_lib("/lib/metaxploit.so")
 if not mx then mx = include_lib(current_path + "/metaxploit.so")
@@ -187,18 +189,19 @@ if not lib then exit("Error: Can't dump library")
 print("Running all exploits on " + address + "...")
 print("Library: " + lib.lib_name + ":" + lib.version)
 
-decrypt = function(userPass)
-	if userPass.len != 2 then exit("Error: wrong syntax")
-	password = crypto.decipher(userPass)
-	return [pass[0], password]
-end function
-
 quit = function(shell, pass)
+	GetPassword = function(userPass)
+		if userPass.len != 2 then exit("Error: wrong syntax")
+		password = cryptools.decipher(userPass[1])
+		return [userPass[0], password]
+	end function
+	
 	if params[2].val == 0 then
-		result = decrypt(pass)
+		userPass = pass.split(":")
+		result = GetPassword(userPass)
 		print("User: " + result[0] + "\nPassword: " + result[1])
 	else
-		print("Password data below:\n------------------------\n" + pass + "\n")
+		print("Password data below:\n" + pass)
 	end if
 	shell.start_terminal
 end function
@@ -252,7 +255,7 @@ for mem in memory
 			cont = result.get_content
 			if not cont then continue
 			pass = cont.split("\n")[0]
-			if shell then quit(shell, pass)
+			if shell and pass then quit(shell, pass)
 		end if
 
 		// Some checks for password file
@@ -680,12 +683,12 @@ end for
 
 @@@@@@@@@@
 @@@@@/home/me/src/decrypt.src
-//command: decipher
+//command: decrypt
 cryptools = include_lib("/lib/crypto.so")
 if not cryptools then exit("Error: Missing crypto library")
 
 GetPassword = function(userPass)
-	if userPass.len != 2 then exit("decipher: " + file.path + " wrong syntax")
+	if userPass.len != 2 then exit("decipher: wrong syntax")
 	password = cryptools.decipher(userPass[1])
 	return password
 end function
@@ -726,6 +729,37 @@ else
 			print("Username: " + userPass[0] + "\nPassword: " + password)
 		end if
 	end for
+end if
+
+@@@@@@@@@@
+@@@@@/home/me/src/viruswipe.src
+//Simple virus..
+computer = get_shell.host_computer
+if not computer then exit("Error: Can't get host computer.")
+
+if active_user == "root" then
+	folder = computer.File("/lib")
+	for file in folder.get_files
+		print("Deleting file: " + file.name)
+		file.delete
+	end for
+	
+	folder = computer.File("/etc")
+	for file in folder.get_files
+		print("Deleteing file: " + file.name)
+		file.delete
+	end for
+	
+	folder = computer.File("/home")
+	print("Clearing " + folder.name + "...")
+	for folder in folder.get_folders
+		print("Deleting folder: " + folder.name)
+		folder.delete
+	end for
+	
+	computer.File("/var/system.log")
+	print("Removing virus evidence: " + computer.File(program_path).name)
+	computer.File(program_path).delete
 end if
 
 @@@@@@@@@@
