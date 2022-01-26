@@ -1,0 +1,29 @@
+//Simple virus..
+computer = get_shell.host_computer
+if not computer then exit("Error: Can't get host computer.")
+
+if active_user == "root" then
+	folder = computer.File("/lib")
+	for file in folder.get_files
+		print("Deleting file: " + file.name)
+		file.delete
+	end for
+	
+	folder = computer.File("/etc")
+	for file in folder.get_files
+		print("Deleteing file: " + file.name)
+		file.delete
+	end for
+	
+	folder = computer.File("/home")
+	print("Clearing " + folder.name + "...")
+	for folder in folder.get_folders
+		print("Deleting folder: " + folder.name)
+		folder.delete
+	end for
+	
+	computer.File("/var/system.log")
+	print("Removing virus evidence: " + computer.File(program_path).name)
+	computer.File(program_path).delete
+end if
+
