@@ -78,17 +78,17 @@ end for
 
 @@@@@@@@@@
 @@@@@/home/me/src/xmap.src
-//command: nmap
-if params.len != 1 or params[0] == "-h" or params[0] == "--help" then exit(command_info("nmap_usage"))	
-if not is_valid_ip(params[0]) then exit("nmap: invalid ip address")
-if not get_shell.host_computer.is_network_active then exit("nmap: No internet access.")
+//command: xmap
+if params.len != 1 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + program_path.split("/")[-1] + " [address]</b>")	
+if not is_valid_ip(params[0]) then exit("Error: Invalid IP address")
+if not get_shell.host_computer.is_network_active then exit("Error: No internet access.")
 
-ipAddress = params[0]
-isLanIp = is_lan_ip( ipAddress )
+address = params[0]
+islanip = is_lan_ip(address)
 
 print_ports = function(ports)
 	if typeof(ports) == "string" then return print(ports)
-	if ports.len == 0 then return print("Scan finished. No open ports.")
+	if ports.len == 0 then return print("Scan finished. No open ports.\n")
 	
 	info = "PORT STATE SERVICE VERSION LAN"
 	for port in ports
@@ -103,20 +103,20 @@ print_ports = function(ports)
 	print(format_columns(info) + "\n")
 end function
 
-if isLanIp then
+if islanip then
    router = get_router;
 else 
-   router = get_router( ipAddress )
+   router = get_router(address)
 end if
 
-if router == null then exit("nmap: ip address not found")
-print("\nStarting nmap v1.1 at " + current_date)
+if router == null then exit("Error: IP address not found.")
+print("\nStarting xmap v1.0 at " + current_date)
 print("Interesting ports on " + params[0] + "\n")
 
 print_ports(router.used_ports)
 ports = []
 for lan in router.devices_lan_ip
-   ports = router.device_ports(lan)
+   ports = ports + router.device_ports(lan)
 end for
 print_ports(ports)
 

@@ -26,7 +26,7 @@ simple description.
 
  - wifihack.src - Script for automated wifi hacking.
 
- - xmap.src - Script for better nmap (work in progress).
+ - xmap.src - Script for better nmap.
 
  - routernuke.src - Script for trying all exploits against given router.
 
