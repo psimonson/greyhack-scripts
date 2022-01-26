@@ -2,6 +2,7 @@ usage = "<b>Usage: "+program_path.split("/")[-1]+" [address] [port] [print_pass]
 usage = usage + "Default password is: dick"
 if params.len != 3 or params[0] == "-h" or params[0] == "--help" then exit(usage)
 if not is_valid_ip(params[0]) then exit("Error: Invalid IP address given")
+address = params[0]
 
 password = "dick"
 if params.len == 4 then
