@@ -1,0 +1,48 @@
+usage = "<b>Usage: "+program_path.split("/")[-1]+" [address] [memory] [value]"
+if params.len != 3 or params[0] == "-h" or params[0] == "--help" then exit(usage)
+if not is_valid_ip(params[0]) then exit("Error: Invalid IP address given")
+
+mx = include_lib("/lib/metaxploit.so")
+if not mx then mx = include_lib(current_path + "/metaxploit.so")
+if not mx then exit("Error: Can't find metaxploit library")
+ns = mx.net_use(params[0])
+if not ns then exit("Error: Can't connect to net session")
+lib = ns.dump_lib
+if not lib then exit("Error: Can't dump library")
+result = lib.overflow(params[1], params[2])
+if not result then exit("Error: Can't escalate priviledges")
+if typeof(result) == "computer" then
+	file = result.File("/etc/passwd")
+	if file != null then
+		if file.is_binary then exit("File "+file.path+" is binary, can't read")
+		if file.is_folder then exit("File "+file.path+" is folder, can't read")
+		if file.len == 0 then exit("File "+file.path+" is empty")
+		if file.has_permission("r") then exit(file.path+": Permission denied")
+		print(file.get_content)
+	end if
+else if typeof(result) == "file" then
+	while not result.path == "/"
+		result = result.parent
+	end while
+	
+	folders = result.get_folders
+	for folder in folders
+		if folder.path == "/etc" then
+			result = folder
+			break
+		end if
+	end for
+	
+	files = result.get_files
+	for file in files
+		if file.path == "/etc/passwd" then
+			result = file
+			break
+		end if
+	end for
+	
+	print(result.get_content)
+else
+	print("Expected file or computer, got " + result)
+end if
+

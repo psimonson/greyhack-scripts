@@ -1,0 +1,740 @@
+@@@@@/home/me/src/decipher.src
+//command: decipher
+cryptools = include_lib("/lib/crypto.so")
+if not cryptools then exit("Error: Missing crypto library")
+
+GetPassword = function(userPass)
+	if userPass.len != 2 then exit("decipher: " + file.path + " wrong syntax")
+	password = cryptools.decipher(userPass[1])
+	return password
+end function
+
+if params.len != 1 or params[0] == "-h" or params[0] == "--help" then exit(command_info("decipher_usage"))
+
+origFile = params[0]
+file = get_shell.host_computer.File(origFile)
+lines = []
+
+if file then
+	if file.is_binary then exit("decipher: can't read " + origFile + ". Binary file")
+	if not file.has_permission("r") then exit("decipher: can't read file. Permission denied")
+	if file.get_content.len == 0 then exit("decipher: no users found")
+	lines = file.get_content.split("\n")
+else if origFile.len > 33 then
+	lines = [origFile]
+else
+	exit("decipher: can't find " + origFile)
+end if
+
+password = null
+if lines.len == 1 then
+	print("Single user found.")
+	userPass = lines[0].split(":")
+	password = GetPassword(userPass)
+	if not password then exit("Can't find password :(")
+	print("Username: " + userPass[0] + "\nPassword: " + password)
+else
+	print("Multiple users found.")
+	for line in lines
+		userPass = line.split(":")
+		print("Deciphering...")
+		password = GetPassword(userPass)
+		if not password then
+			print("Can't find password :(")
+		else
+			print("Username: " + userPass[0] + "\nPassword: " + password)
+		end if
+	end for
+end if
+
+@@@@@@@@@@
+@@@@@/home/me/src/scanner.src
+if params.len != 2 then exit("<b>Usage: "+program_path.split("/")[-1]+" [address] [port]</b>")
+mx = include_lib("/lib/metaxploit.so")
+if not mx then
+	print("Metaxploit library not found in /lib trying " + program_path)
+	mx = include_lib(program_path + "/metaxploit.so")
+end if
+if not mx then exit("Error: Could not locate metaxploit library")
+
+address = params[0]
+if not is_valid_ip(address) then exit("Error: Invalid IP address given")
+port = params[1].to_int
+ns = null
+if port == 0 then
+	ns = mx.net_use(address)
+else
+	ns = mx.net_use(address, port)
+end if
+if not ns then exit("Error: Can't create net session")
+metalib = ns.dump_lib
+if not metalib then exit("Error: Can't get library handle")
+print(metalib.lib_name + " version " + metalib.version)
+addresses = mx.scan(metalib)
+for address in addresses
+	print("Address : >-----[" + address + "]<-----")
+	print(mx.scan_address(metalib, address))
+end for
+
+@@@@@@@@@@
+@@@@@/home/me/src/xmap.src
+//command: nmap
+if params.len != 1 or params[0] == "-h" or params[0] == "--help" then exit(command_info("nmap_usage"))	
+if not is_valid_ip(params[0]) then exit("nmap: invalid ip address")
+if not get_shell.host_computer.is_network_active then exit("nmap: No internet access.")
+
+ipAddress = params[0]
+isLanIp = is_lan_ip( ipAddress )
+
+print_ports = function(ports)
+	if typeof(ports) == "string" then return print(ports)
+	if ports.len == 0 then return print("Scan finished. No open ports.")
+	
+	info = "PORT STATE SERVICE VERSION LAN"
+	for port in ports
+		service_info = router.port_info(port)
+		lan_ip = port.get_lan_ip
+		port_status = "open"
+		if port.is_closed then
+			port_status = "closed"
+		end if
+		info = info + "\n" + port.port_number + " " + port_status + " " + service_info + " " + lan_ip
+	end for
+	print(format_columns(info) + "\n")
+end function
+
+if isLanIp then
+   router = get_router;
+else 
+   router = get_router( ipAddress )
+end if
+
+if router == null then exit("nmap: ip address not found")
+print("\nStarting nmap v1.1 at " + current_date)
+print("Interesting ports on " + params[0] + "\n")
+
+print_ports(router.used_ports)
+ports = []
+for lan in router.devices_lan_ip
+   ports = router.device_ports(lan)
+end for
+print_ports(ports)
+
+@@@@@@@@@@
+@@@@@/home/me/src/getbank.src
+if params.len != 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: "+program_path.split("/")[-1]+" [address] [port]</b>")
+mx = include_lib("/lib/metaxploit.so")
+if not mx then mx = include_lib(current_path + "/metaxploit.so")
+if not mx then exit("Error: Can't find metaxploit")
+
+address = params[0]
+if not is_valid_ip(address) then exit("Error: Invalid IP address given.")
+port = params[1].to_int
+
+// Load up crypto.so library.
+cryptools = include_lib("/lib/crypto.so")
+if not cryptools then
+	cryptools = include_lib(current_path + "/crypto.so")
+end if
+if not cryptools then exit("Error: Can't find crypto.so library in the /lib path or the current folder")
+
+GetMoney = function(result)
+	GetPassword = function(userPass)
+		if userPass.len != 2 then exit("decipher: wrong syntax")
+		password = cryptools.decipher(userPass[1])
+		return password
+	end function
+
+	typeObject = typeof(result)
+	if(typeObject != "computer") then exit("Error: expected computer, obtained " + typeObject)
+	homeFolder = result.File("/home")
+	if not homeFolder then exit("Error: /home folder not found")
+	userFolders = homeFolder.get_folders
+	found = false
+	for userFolder in userFolders
+		bankFile = result.File("/home/" + userFolder.name + "/Config/Bank.txt")
+		if not bankFile then continue
+		if not bankFile.has_permission("r") then exit("Error: can't read file contents. Permission deniend")
+		userPass = bankFile.get_content.split(":")
+		print("Deciphering bank password for user: " + userFolder.name)
+		password = GetPassword(userPass)
+		if not password then 
+			print("Nothing found...")
+		else
+			print("Bank account: " + userPass[0] +"\nBank Password: " + password)
+		found = true
+		end if
+	end for
+	if not found then print("No files found")
+end function
+
+GetMoneyFile = function(homeFolder, userFile)
+	GetPassword = function(userPass)
+		if userPass.len != 2 then exit("decipher: wrong syntax")
+		password = cryptools.decipher(userPass[1])
+		return password
+	end function
+
+	print("Accessing to " + userFile + " files...\nSearching users...")
+	folders = homeFolder.get_folders
+	for user in folders
+		print("User: " + user.name + " found...")
+		subFolders = user.get_folders
+		bankFound = false
+		for subFolder in subFolders
+			if subFolder.name == "Config" then
+				files = subFolder.get_files
+				for file in files
+					if file.name == userFile then
+						if not file.has_permission("r") then print("failed. Can't access file contents. Permission denied")
+						print("success! Decrypting...")
+						password = GetPassword(file.get_content.split(":"))
+						if password != null then
+							print("Acct: " + file.get_content.split(":")[-2] + "\nPass: " + password)
+						end if
+						bankFound = true
+					end if
+				end for
+			end if
+		end for
+		if not bankFound then print("Bank file not found.")
+	end for
+	if folders.len == 0 then print("No users found. Program aborted")
+end function
+
+// Scan and try all methods
+ns = mx.net_use(address, port)
+if not ns then exit("Error: Can't connect to net session")
+lib = ns.dump_lib
+if not lib then exit("Error: Can't dump library")
+print("Running all exploits against " + address + "...")
+print("Library: " + lib.lib_name + " : " + lib.version)
+
+memory = mx.scan(lib)
+if not memory then exit("Error: Can't scan library")
+for mem in memory
+	address = mx.scan_address(lib, mem).split("Unsafe check: ")
+	for addr in address
+		if addr == address[0] then continue
+		
+		// Get all values from library
+		value = addr[addr.indexOf("<b>")+3:addr.indexOf("</b>")]
+		value = value.replace("\n", "")
+		result = lib.overflow(mem, value)
+		if not result then continue
+
+		// Check for shell or computer
+		if typeof(result) == "computer" then
+			GetMoney(result)
+			exit("Program ended")
+		else if typeof(result) == "file" then
+			if result.path == "/home" then
+				GetMoneyFile(result, "Bank.txt")
+				exit("Program ended")
+			else
+				print("Searching home folder...")
+				while not result.path == "/"
+					result = result.parent
+				end while
+					
+				folders = result.get_folders
+				for folder in folders
+					if folder.path == "/home" then
+						GetMoneyFile(folder, "Bank.txt")
+						exit("Program ended")
+					end if
+				end for
+			end if
+		end if
+	end for
+end for
+
+@@@@@@@@@@
+@@@@@/home/me/src/zip.src
+// zip.src - make backup of all scripts.
+comp = get_shell.host_computer
+sdir = comp.File(home_dir + "/src")
+file = comp.File(home_dir + "/scripts.txt")
+
+if not file then
+	comp.touch(home_dir, "scripts.txt")
+	file = comp.File(home_dir + "/scripts.txt")
+end if
+if not file then exit("Error: Can't create scripts.txt in " + home_dir)
+
+data = ""
+for tmp in sdir.get_files
+	if not tmp.is_binary or not tmp.is_folder then
+		data = data + "@"*5 + tmp.path + char(10) + tmp.get_content + char(10) + "@"*10 + char(10)
+	end if
+end for
+file.set_content(data)
+
+@@@@@@@@@@
+@@@@@/home/me/src/lscanner.src
+usage = "<b>Usage: "+program_path.split("/")[-1]+" [library]</b>"
+if params.len != 1 or params[0] == "-h" or params[0] == "--help" then exit(usage)
+
+mx = include_lib("/lib/metaxploit.so")
+if not mx then mx = include_lib(current_path + "/metaxploit.so")
+if not mx then exit("Error: metaxploit library not found")
+lib = mx.load(params[0])
+if not lib then exit("Error: Library " + params[0] + " not found")
+print(lib.lib_name+" "+lib.version)
+mems = mx.scan(lib)
+for mem in mems
+	print(">----["+mem+"]----<")
+	print(mx.scan_address(lib, mem))
+	print("-------------------")
+end for
+
+@@@@@@@@@@
+@@@@@/home/me/src/lhack.src
+usage = "<b>Usage: "+program_path.split("/")[-1]+" [address] [memory] [value]"
+if params.len != 3 or params[0] == "-h" or params[0] == "--help" then exit(usage)
+if not is_valid_ip(params[0]) then exit("Error: Invalid IP address given")
+
+mx = include_lib("/lib/metaxploit.so")
+if not mx then mx = include_lib(current_path + "/metaxploit.so")
+if not mx then exit("Error: Can't find metaxploit library")
+ns = mx.net_use(params[0])
+if not ns then exit("Error: Can't connect to net session")
+lib = ns.dump_lib
+if not lib then exit("Error: Can't dump library")
+result = lib.overflow(params[1], params[2])
+if not result then exit("Error: Can't escalate priviledges")
+if typeof(result) == "computer" then
+	file = result.File("/etc/passwd")
+	if file != null then
+		if file.is_binary then exit("File "+file.path+" is binary, can't read")
+		if file.is_folder then exit("File "+file.path+" is folder, can't read")
+		if file.len == 0 then exit("File "+file.path+" is empty")
+		if file.has_permission("r") then exit(file.path+": Permission denied")
+		print(file.get_content)
+	end if
+else if typeof(result) == "file" then
+	while not result.path == "/"
+		result = result.parent
+	end while
+	
+	folders = result.get_folders
+	for folder in folders
+		if folder.path == "/etc" then
+			result = folder
+			break
+		end if
+	end for
+	
+	files = result.get_files
+	for file in files
+		if file.path == "/etc/passwd" then
+			result = file
+			break
+		end if
+	end for
+	
+	print(result.get_content)
+else
+	print("Expected file or computer, got " + result)
+end if
+
+@@@@@@@@@@
+@@@@@/home/me/src/rhack.src
+usage = "<b>Usage: "+program_path.split("/")[-1]+" [address] [port] [print_pass] (password)</b>\n"
+usage = usage + "Default password is: dick"
+if params.len != 3 or params[0] == "-h" or params[0] == "--help" then exit(usage)
+if not is_valid_ip(params[0]) then exit("Error: Invalid IP address given")
+
+password = "dick"
+if params.len == 4 then
+	password = params[3]
+end if
+
+mx = include_lib("/lib/metaxploit.so")
+if not mx then mx = include_lib(current_path + "/metaxploit.so")
+if not mx then exit("Error: metaxploit.so not found")
+ns = mx.net_use(params[0], params[1].to_int)
+if not ns then exit("Error: Can't connect to net session")
+lib = ns.dump_lib
+if not lib then exit("Error: Can't dump library")
+print("Running all exploits on " + address + "...")
+print("Library: " + lib.lib_name + ":" + lib.version)
+
+quit = function(shell, pass)
+	if params[2].to_int == 0 then
+		get_shell.launch("/bin/decipher", pass)
+	else
+		print("Password data below:\n------------------------\n" + pass + "\n")
+	end if
+	shell.start_terminal
+end function
+
+shell = null
+pass = null
+
+memory = mx.scan(lib)
+if not memory then exit("Error: Can't scan library")
+for mem in memory
+	address = mx.scan_address(lib, mem).split("Unsafe check: ")
+	for addr in address
+		if addr == address[0] then continue
+		if shell and pass then quit(shell, pass)
+		
+		// Get all values from library
+		value = addr[addr.indexOf("<b>")+3:addr.indexOf("</b>")]
+		value = value.replace("\n", "")
+		result = lib.overflow(mem, value, password)
+		if not result then continue
+		comp = null
+
+		// Check for shell or computer
+		if typeof(result) == "shell" then
+			shell = result
+			comp = result.host_computer
+		else if typeof(result) == "computer" then
+			comp = result
+		else if not pass and typeof(result) == "file" then
+			while not result.path == "/"
+				result = result.parent
+			end while
+			
+			files = null
+			for folder in result.get_folders
+				if folder.path == "/etc" then
+					files = folder.get_files
+					break
+				end if
+			end for
+
+			result = null			
+			for file in files
+				if file.name == "passwd" then
+					result = file
+					break
+				end if
+			end for
+
+			if not result then continue
+			cont = result.get_content
+			if not cont then continue
+			pass = cont.split("\n")[0]
+			if shell then quit(shell, pass)
+		end if
+
+		// Some checks for password file
+		if not comp then continue
+		file = comp.File("/etc/passwd")
+		if not file then continue
+		cont = file.get_content
+		if not cont then continue
+		pass = cont.split("\n")[0]
+		if shell then quit(shell, pass)
+	end for
+end for
+
+@@@@@@@@@@
+@@@@@/home/me/src/getmail.src
+if params.len != 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: "+program_path.split("/")[-1]+" [address] [port]</b>")
+mx = include_lib("/lib/metaxploit.so")
+if not mx then mx = include_lib(current_path + "/metaxploit.so")
+if not mx then exit("Error: Can't find metaxploit")
+
+address = params[0]
+if not is_valid_ip(address) then exit("Error: Invalid IP address given.")
+port = params[1].to_int
+
+// Load up crypto.so library.
+cryptools = include_lib("/lib/crypto.so")
+if not cryptools then
+	cryptools = include_lib(current_path + "/crypto.so")
+end if
+if not cryptools then exit("Error: Can't find crypto.so library in the /lib path or the current folder")
+
+GetMoney = function(result)
+	GetPassword = function(userPass)
+		if userPass.len != 2 then exit("decipher: wrong syntax")
+		password = cryptools.decipher(userPass[1])
+		return password
+	end function
+
+	typeObject = typeof(result)
+	if typeObject != "computer" then exit("Error: expected computer, obtained " + typeObject)
+	homeFolder = result.File("/home")
+	if not homeFolder then exit("Error: /home folder not found")
+	userFolders = homeFolder.get_folders
+	found = false
+	for userFolder in userFolders
+		bankFile = result.File("/home/" + userFolder.name + "/Config/Mail.txt")
+		if not bankFile then continue
+		if not bankFile.has_permission("r") then exit("Error: can't read file contents. Permission deniend")
+		userPass = bankFile.get_content.split(":")
+		password = GetPassword(userPass)
+		if not password then 
+			print("Nothing found...")
+		else
+			print("Mail account: " + userPass[0] +"\nMail Password: " + password)
+		found = true
+		end if
+	end for
+	if not found then print("No files found")
+end function
+
+GetMoneyFile = function(homeFolder, userFile)
+	GetPassword = function(userPass)
+		if userPass.len != 2 then exit("decipher: wrong syntax")
+		password = cryptools.decipher(userPass[1])
+		return password
+	end function
+
+	print("Accessing to " + userFile + " files...\nSearching users...")
+	folders = homeFolder.get_folders
+	for user in folders
+		print("User: " + user.name + " found...")
+		subFolders = user.get_folders
+		bankFound = false
+		for subFolder in subFolders
+			if subFolder.name == "Config" then
+				files = subFolder.get_files
+				for file in files
+					if file.name == userFile then
+						if not file.has_permission("r") then print("failed. Can't access file contents. Permission denied")
+						print("success! Decrypting...")
+						password = GetPassword(file.get_content.split(":"))
+						if password != null then
+							print("Mail Username: " + file.get_content.split(":")[-2] + "\nMail Password: " + password)
+						end if
+						bankFound = true
+					end if
+				end for
+			end if
+		end for
+		if not bankFound then print("Mail file not found.")
+	end for
+	if folders.len == 0 then print("No users found. Program aborted")
+end function
+
+// Scan and try all methods
+ns = mx.net_use(address, port)
+if not ns then exit("Error: Can't connect to net session")
+lib = ns.dump_lib
+if not lib then exit("Error: Can't dump library")
+print("Running all exploits against " + address + "...")
+print("Library: " + lib.lib_name + " : " + lib.version)
+
+memory = mx.scan(lib)
+if not memory then exit("Error: Can't get addresses from library")
+for mem in memory
+	address = mx.scan_address(lib, mem).split("Unsafe check: ")
+	for addr in address
+		if addr == address[0] then continue
+		
+		// Get all values from library
+		value = addr[addr.indexOf("<b>")+3:addr.indexOf("</b>")]
+		value = value.replace("\n", "")
+		result = lib.overflow(mem, value)
+		if not result then continue
+
+		// Check for shell or computer
+		if typeof(result) == "computer" then
+			GetMoney(result)
+			exit("Program ended")
+		else if typeof(result) == "file" then
+			if result.path == "/home" then
+				GetMoneyFile(result, "Mail.txt")
+				exit("Program ended")
+			else
+				print("Searching home folder...")
+				while not result.path == "/"
+					result = result.parent
+				end while
+					
+				folders = result.get_folders
+				for folder in folders
+					if folder.path == "/home" then
+						GetMoneyFile(folder, "Mail.txt")
+						exit("Program ended")
+					end if
+				end for
+			end if
+		end if
+	end for
+end for
+
+@@@@@@@@@@
+@@@@@/home/me/src/routernuke.src
+usage="<b>Usage: "+program_path.split("/")[-1]+" [address]"
+if params.len != 1 or params[0] == "-h" or params[0] == "--help" then exit(usage)
+if not is_valid_ip(params[0]) then exit("Error: Invalid address given")
+
+quit = function(shell)
+	shell.start_terminal
+end function
+
+mx = include_lib("/lib/metaxploit.so")
+if not mx then mx = include_lib(current_path + "/metaxploit.so")
+if not mx then exit("Error: Can't find metaxploit.so")
+ns = mx.net_use(params[0])
+if not ns then exit("Error: Can't connect to net session")
+lib = ns.dump_lib
+print("Running all exploits for router...")
+print("Exploit for: " + lib.lib_name + ":" + lib.version)
+memory = mx.scan(lib)
+for mem in memory
+	address = mx.scan_address(lib, mem).split("Unsafe check: ")
+	for addr in address
+		if addr == address[0] then continue
+		
+		// Get all values from library
+		value = addr[addr.indexOf("<b>")+3:addr.indexOf("</b>")]
+		value = value.replace("\n", "")
+		result = lib.overflow(mem, value)
+		if not result then continue
+		
+		// Check for router and process
+		if typeof(result) == "shell" then
+			quit(result)
+		else
+			print("Expected shell, got " + result)
+		end if
+	end for
+end for
+
+@@@@@@@@@@
+@@@@@/home/me/src/wifihack.src
+// wifihack - Almost fully automate wifi hacking.
+usage = "<b>Usage: " + program_path.split("/")[-1] + "</b>"
+if params.len != 0 then exit(usage)
+
+crypto = include_lib("/lib/crypto.so")
+if not crypto then crypto = include_lib(current_path + "/crypto.so")
+if not crypto then exit("Error: Can't find crypto.so")
+
+// Get computer and delete file.cap if exists
+computer = get_shell.host_computer
+file = computer.File(home_dir + "/file.cap")
+if file then
+	file.delete
+end if
+
+// Get interfaces
+network_info = computer.network_devices.split(" ")
+interfaces = []
+interfaces_num = 0
+for info in network_info
+	if info == "wlan" + str(interfaces_num) then
+		interfaces.push(info)
+		interfaces_num = interfaces_num + 1
+	end if
+end for
+
+// Selection menu for wifi interfaces
+interface = 0
+while interface <= 0 or interface > interfaces.len
+	num = 1
+	print("Interfaces:")
+	for net in interfaces
+		print(str(num) + ". " + net)
+		num = num + 1
+	end for
+	print("0. Exit")
+	interface = user_input("Selection: ")
+	interface = interface.val
+	if interface == 0 then exit("Program ended")
+end while
+interface = interface - 1
+if interface < 0 or interface > interfaces.len-1 then exit("Error: Can't find interface, got " + str(interface.val))
+
+// Found interface
+print("Interface: " + interfaces[interface])
+
+result = crypto.airmon("start", interfaces[interface])
+if result == 0 then exit("Failed to start monitoring...")
+
+// Get network list
+print("Getting wifi network list...")
+info = "BSSID POWER ESSID"
+networks = computer.wifi_networks(interfaces[interface])
+for net in networks
+	info = info + "\n" + net
+end for
+print(format_columns(info))
+
+// Get user selection
+essid = null
+bssid = null
+selection = 0
+while selection <= 0 or selection > networks.len
+	num = 1
+	print("Please select a network:")
+	for net in networks
+		print(str(num) + ". " + net.split(" ")[-1])
+		num = num + 1
+	end for
+	print("0. Exit")
+	selection = user_input("Selection: ")
+	selection = selection.val
+	if selection == 0 then
+		print("You decided to exit...")
+		crypto.airmon("stop", interfaces[interface])
+		if result == 1 then
+			print("Monitoring, stopped running...")
+		end if
+		exit("Program ended")
+	end if
+end while
+selection = selection - 1
+if selection < 0 or selection > networks.len-1 then exit("Error: Selection out of range.")
+
+// Now run aireplay to get capture data
+packet_count = null
+while not packet_count or packet_count <= 0 and packet_count >= 300000
+	packet_count = user_input("How many ACKs do you need? ")
+	packet_count = packet_count.val
+end while
+bssid = networks[selection].split(" ")[-3]
+essid = networks[selection].split(" ")[-1]
+result = crypto.aireplay(bssid, essid, packet_count)
+if result == 0 then
+	print("Failed to get capture data from wifi network.")
+	result = crypto.airmon("stop", interfaces[interface])
+	if result == 0 then
+		print("Failed to stop monitoring...")
+	end if
+	exit("Program ended")
+end if
+
+// Launch the WEP cracker program called "aircrack"
+result = crypto.aircrack(home_dir + "/file.cap")
+if not result then
+	print("Failed to crack password.")
+	result = crypto.airmon("stop", interfaces[interface])
+	if result == 0 then
+		print("Failed to stop monitoring...")
+	end if
+	exit("Program ended")
+end if
+password = result
+
+// Stop monitoring interface
+result = crypto.airmon("stop", interfaces[interface])
+if result == 0 then
+	print("Monitoring failed to stop, already stopped.")
+end if
+
+// Save password to file and connect.
+print("Wifi network cracked saving password...")
+filename = essid + ".txt"
+result = computer.touch(home_dir, filename)
+if not result then
+	print("Cannot create file: " + filename)
+	exit("Program ended")
+end if
+result = computer.File(filename)
+if result != null then
+	result.set_content("")
+	result.set_content("Network" + char(10) + "============" + char(10) + "ESSID: " + essid + char(10) + "BSSID: " + bssid + char(10) + "Password: " + password + char(10))
+end if
+print("Network: " + essid + "\nPassword: " + password)
+
+@@@@@@@@@@
+
