@@ -2,9 +2,41 @@ usage="<b>Usage: "+program_path.split("/")[-1]+" [address]"
 if params.len != 1 or params[0] == "-h" or params[0] == "--help" then exit(usage)
 if not is_valid_ip(params[0]) then exit("Error: Invalid address given")
 
-quit = function(shell)
+get_folder = function(folderName)
+	if typeof(folderName) != "string" then exit("get_folder: folderName not equal string.")
+
+	foundFolder = null
+	folders = result.get_folders
+	for folder in folders
+		if folder.name == folderName then
+			foundFolder = folder
+			break
+		end if
+	end for
+
+	if not foundFolder then
+		print("get_folder: Can't find folder.")
+		return null
+	end if
+	
+	if not foundFolder.is_binary then
+		print("get_folder: Path found but is a file.")
+		return null
+	end if
+	
+	return foundFolder
+end function
+
+quit = function(shell, file)
+	if file != null then
+		print("File: /etc/" + file.name + ":")
+		print(file.get_content)
+	end if
 	shell.start_terminal
 end function
+
+shell = null
+passFile = null
 
 mx = include_lib("/lib/metaxploit.so")
 if not mx then mx = include_lib(current_path + "/metaxploit.so")
@@ -13,7 +45,7 @@ ns = mx.net_use(params[0])
 if not ns then exit("Error: Can't connect to net session")
 lib = ns.dump_lib
 print("Running all exploits for router...")
-print("Exploit for: " + lib.lib_name + ":" + lib.version)
+print("Library: " + lib.lib_name + " : " + lib.version)
 memory = mx.scan(lib)
 for mem in memory
 	address = mx.scan_address(lib, mem).split("Unsafe check: ")
@@ -28,10 +60,28 @@ for mem in memory
 		
 		// Check for router and process
 		if typeof(result) == "shell" then
-			quit(result)
+			shell = result
+		else 		if typeof(result) == "file" then
+			while result.path != "/"
+				result = result.parent
+			end while
+			
+			etcFolder = get_folder("etc")
+			if not etcFolder then exit
+		
+			files = etcFolder.get_files
+			for file in files
+				if file.name == "passwd" then
+					if not passFile then
+						passFile = file
+					end if
+				end if
+			end for
 		else
 			print("Expected shell, got " + result)
 		end if
+	
+		if shell and passFile then quit(shell, passFile)
 	end for
 end for
 

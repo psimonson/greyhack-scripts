@@ -38,3 +38,5 @@ simple description.
 
  - viruswipe.src - Simple virus to render a machine useless in Grey Hack.
 
+ - xploit.src - Automatic hacking/scanning tool.
+

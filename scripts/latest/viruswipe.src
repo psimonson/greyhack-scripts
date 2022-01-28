@@ -3,7 +3,7 @@ computer = get_shell.host_computer
 if not computer then exit("Error: Can't get host computer.")
 
 if active_user == "root" then
-	folder = computer.File("/lib")
+	folder = computer.File("/boot")
 	for file in folder.get_files
 		print("Deleting file: " + file.name)
 		file.delete
@@ -22,8 +22,12 @@ if active_user == "root" then
 		folder.delete
 	end for
 	
-	computer.File("/var/system.log")
-	print("Removing virus evidence: " + computer.File(program_path).name)
-	computer.File(program_path).delete
+	file = computer.File("/var/system.log")
+	if not file then exit("System log not present. Please reboot...")
+	file.delete
+	file = computer.File(program_path)
+	if not file then exit("Can't find virus file (this file).")
+	print("Removing virus evidence: " + file.name)
+	file.delete
 end if
 

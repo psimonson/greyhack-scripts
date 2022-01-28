@@ -40,3 +40,4 @@ for lan in router.devices_lan_ip
 end for
 print_ports(ports)
 
+
