@@ -24,23 +24,108 @@ get_xploit = function()
 	return xploit
 end function
 
-// Function to get crypto.so library
-get_crypto = function()
-	crypto = include_lib("/lib/crypto.so")
-	if not crypto then crypto = include_lib(get_path() + "/crypto.so")
-	if not crypto then exit(get_name() + ": crypto.so not found.")
-	return crypto
+// Function for built-in xmap
+use_xmap = function(address)
+	islanip = is_lan_ip(address)
+
+	print_ports = function(ports)
+		if typeof(ports) == "string" then return print(ports)
+		if ports.len == 0 then return print("Scan finished. No open ports.\n")
+	
+		info = "PORT STATE SERVICE VERSION LAN"
+		for port in ports
+			service_info = router.port_info(port)
+			lan_ip = port.get_lan_ip
+			port_status = "open"
+			if port.is_closed then
+				port_status = "closed"
+			end if
+			info = info + "\n" + port.port_number + " " + port_status + " " + service_info + " " + lan_ip
+		end for
+		print(format_columns(info) + "\n")
+	end function
+
+	if islanip then
+	   router = get_router;
+	else 
+	   router = get_router(address)
+	end if
+
+	if router == null then return print("Error: IP address not found.")
+	print("\nStarting xmap v1.0 at " + current_date)
+	print("Interesting ports on " + address + "\n")
+
+	print_ports(router.used_ports)
+	ports = []
+	for lan in router.devices_lan_ip
+	   ports = ports + router.device_ports(lan)
+	end for
+	print_ports(ports)
 end function
 
-// Function built-in scanner
+// Function built-in scanner/exploiter
 use_xploit = function(address, port, flag)
 	shell = null		// Global shell variable
-	computer = null		// Global computer variable
-	file = null			// Global file variable
 	
+	// Function to get the password file at /etc
+	get_passwd = function(result)
+		if typeof(result) == "computer" then
+			file = result.File("/etc/passwd")
+			if not file then return null
+			if file.is_binary then return null
+			if not file.has_permission("r") then
+				print(file.path + ": Permission denied.")
+				return null
+			end if
+			return file
+		else if typeof(result) == "file" then
+			while result.path != "/"
+				result = result.parent
+			end while
+			
+			// Get all folders in root directory
+			folders = result.get_folders
+			for folder in folders
+				if folder.name == "etc" then
+					result = folder
+					break
+				end if
+			end for
+			if not result then return null
+			if not result.is_binary then return null
+			
+			// Get all files in /etc
+			files = result.get_files
+			for file in files
+				if file.name == "passwd" then
+					result = file
+					break
+				end if
+			end for
+			if not result then return null
+			if result.is_binary then return null
+			if not result.has_permission("r") then
+				print(result.path + ": Permission denied.")
+				return null
+			end if
+			return result
+		end if
+	end function
+
 	// Function to do something with the result.
-	do_result = function()
-		//if computer or file then get_all_files(result)
+	do_result = function(computer, userfile)
+		// Get password file
+		result = computer
+		if not result then result = userfile
+		if result then
+			file = get_passwd(result)
+			if file then
+				print(file.path + ":\n" + file.get_content)
+				//print(file.get_content)
+			end if
+		end if
+				
+		// Start new shell
 		if shell then shell.start_terminal
 	end function
 
@@ -55,17 +140,22 @@ use_xploit = function(address, port, flag)
 	else
 		ns = xploit.net_use(address, port)
 	end if
-	if not ns then exit(get_name() + ": Can't connect to net session.")
+	if not ns then return print(get_name() + ": Can't connect to net session.")
 	
 	// Get library that the connect has.
 	lib = ns.dump_lib
-	if not lib then exit(get_name() + ": Can't dump the current library.")
+	if not lib then return print(get_name() + ": Can't dump the current library.")
+	computer = null
+	userfile = null
 	
 	// Scan for memory addresses
 	print("Library: " + lib.lib_name + " : " + lib.version)
 	memory = xploit.scan(lib)
 	for mem in memory
-		print("Address >-----[" + mem + "]-----<")
+		if not flag then
+			print("Address >-----[" + mem + "]-----<")
+		end if
+		
 		address = xploit.scan_address(lib, mem).split("Unsafe check: ")
 		num = 0
 		
@@ -84,7 +174,7 @@ use_xploit = function(address, port, flag)
 				else if typeof(result) == "computer" then
 					computer = result
 				else
-					file = result
+					userfile = result
 				end if
 			else
 				print("Value " + str(num) + ": " + value)
@@ -93,7 +183,7 @@ use_xploit = function(address, port, flag)
 		end for
 	end for
 
-	do_result()
+	do_result(computer, userfile)
 end function
 
 start_message = "******************************************************\n" + "*      ___    ___                                    *\n" + "*       \ \  / /   ______  ___          _  ___       *\n" + "*        \ \/ /   /  ___ \ | |    ___  |_| | |_      *\n" + "*        / /\ \   | |___|| | |_  | | |  _  |  _|     *\n" + "*       / /  \ \  | _____/ |___| | | | | | | |       *\n" + "*      ---------- | |             ---   -   -        *\n" + "*                  -                                 *\n" + "******************************************************\n"
@@ -110,41 +200,68 @@ while true
 	option = null
 	
 	while not option or option != 0
-		print("1. Scanner")
-		print("2. Remote Exploit")
+		print("1. Remote Exploit Scanner")
+		print("2. Xmap Port Scanner")
+		print("3. Remote Exploit")
 		print("0. Exit")
 		
 		option = user_input("Option: ")
 		option = option.to_int
-		if option == 1 then
+		if option == 0 then
+			exit("Program has ended.")
+		else if option == 1 then
 			address = null
 			port = null
 			while not address or not is_valid_ip(address)
 				address = user_input("Enter IP Address: ")
 			end while
-		
-			while not port or port < 0 and port > 65535
-				port = user_input("Enter Port: ")
-				port = port.to_int
-			end while
+			
+			input = user_input("Do you want to enter a port (y/n)? ")
+			if input == "y" or input == "Y" then
+				while not port or port < 0 or port > 65535
+					port = user_input("Enter Port: ")
+					port = port.to_int
+				end while
+			end if
 
-			print("Running scanner on " + address + " at port " + str(port))
-			use_xploit(address, port, false)
+			if not port then
+				print("Running scanner on router...")
+				use_xploit(address, null, false)
+			else
+				print("Running scanner on " + address + " at port " + str(port))
+				use_xploit(address, port, false)
+			end if
 		else if option == 2 then
 			address = null
+			
+			while not address or not is_valid_ip(address)
+				address = user_input("Enter IP address: ")
+			end while
+			
+			use_xmap(address)
+		else if option == 3 then
+			address = null
 			port = null
 			
 			while not address or not is_valid_ip(address)
 				address = user_input("Enter IP Address: ")
 			end while
 			
-			while not port or port < 0 and port > 65535
-				port = user_input("Enter Port: ")
-				port = port.to_int
-			end while
+			input = user_input("Do you want to specify a port (y/n)? ")
+			if input == "y" or input == "Y" then
+				while not port or port < 0 or port > 65535
+					port = user_input("Enter Port: ")
+					port = port.to_int
+				end while
+			end if
 			
-			print("Running xploits on " + address + " at port " + str(port))
-			use_xploit(address, port, true)
+			if not port then
+				print("Running xploits on router...")
+				use_xploit(address, null, true)
+			else
+				print("Running xploits on " + address + " at port " + str(port))
+				use_xploit(address, port, true)
+			end if
 		else
 			print("Going back to selection.")
 		end if
