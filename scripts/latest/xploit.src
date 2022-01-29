@@ -79,10 +79,10 @@ use_getfile = function(address, port, user_file)
 					break
 				end if
 			end for
-			if not homeFolder then exit("Error: Can't access home dir.")
+			if not homeFolder then return print("Error: Can't access home dir.")
 		else if typeof(result) == "computer" then
 			homeFolder = result.File("/home")
-			if not homeFolder then exit("Error: Can't access home dir.")
+			if not homeFolder then return print("Error: Can't access home dir.")
 		end if
 
 		print("Accessing to " + userFile + " files...\nSearching users...")
@@ -107,9 +107,9 @@ use_getfile = function(address, port, user_file)
 					end for
 				end if
 			end for
-			if not fileFound then print("Bank file not found.")
+			if not fileFound then return print("Bank file not found.")
 		end for
-		if folders.len == 0 then print("No users found. Program aborted")
+		if folders.len == 0 then return print("No users found. Program aborted")
 	end function
 	
 	// Initialize metaxploit
@@ -126,7 +126,7 @@ use_getfile = function(address, port, user_file)
 
 	// Scan all available exploits against target
 	memory = mx.scan(lib)
-	if not memory then exit("Error: Can't scan library")
+	if not memory then return print("Error: Can't scan library")
 	for mem in memory
 		address = mx.scan_address(lib, mem).split("Unsafe check: ")
 		for addr in address
@@ -141,11 +141,11 @@ use_getfile = function(address, port, user_file)
 			// Check for shell or computer
 			if typeof(result) == "computer" then
 				GetFile(result, user_file)
-				exit("Program ended")
+				return
 			else if typeof(result) == "file" then
 				if result.path == "/home" then
 					GetFile(result, user_file)
-					exit("Program ended")
+					return
 				else
 					print("Searching home folder...")
 					while not result.path == "/"
@@ -156,7 +156,7 @@ use_getfile = function(address, port, user_file)
 					for folder in folders
 						if folder.path == "/home" then
 							GetFile(folder, user_file)
-							exit("Program ended")
+							return
 						end if
 					end for
 				end if
