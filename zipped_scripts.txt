@@ -1,0 +1,724 @@
+@@@@@/home/5n4k3/src/xploit.src
+///////////////////////////////////////////////////////////////////
+// xploit.src - Multipurpose hacking and scanning tool.
+// Entire source written by Philip "5n4k3" Simonson
+///////////////////////////////////////////////////////////////////
+
+// Function to get program name
+get_name = function()
+	return program_path.split("/")[-1]
+end function
+
+// Function to get program path
+get_path = function()
+	result = program_path.split("/")
+	result.remove(result.len - 1)
+	result = result.join("/")
+	return result
+end function
+
+// Function to get metaxploit library
+get_xploit = function()
+	xploit = include_lib("/lib/metaxploit.so")
+	if not xploit then xploit = include_lib(get_path() + "/metaxploit.so")
+	if not xploit then exit(get_name() + ": metaxploit.so not found.")
+	return xploit
+end function
+
+// Function for built-in xmap
+use_xmap = function(address)
+	islanip = is_lan_ip(address)
+
+	print_ports = function(ports)
+		if typeof(ports) == "string" then return print(ports)
+		if ports.len == 0 then return print("Scan finished. No open ports.\n")
+	
+		info = "PORT STATE SERVICE VERSION LAN"
+		for port in ports
+			service_info = router.port_info(port)
+			lan_ip = port.get_lan_ip
+			port_status = "open"
+			if port.is_closed then
+				port_status = "closed"
+			end if
+			info = info + "\n" + port.port_number + " " + port_status + " " + service_info + " " + lan_ip
+		end for
+		print(format_columns(info) + "\n")
+	end function
+
+	if islanip then
+	   router = get_router;
+	else 
+	   router = get_router(address)
+	end if
+
+	if router == null then return print("Error: IP address not found.")
+	print("\nStarting xmap v1.0 at " + current_date)
+	print("Interesting ports on " + address + "\n")
+
+	print_ports(router.used_ports)
+	ports = []
+	for lan in router.devices_lan_ip
+	   ports = ports + router.device_ports(lan)
+	end for
+	print_ports(ports)
+end function
+
+// Get bank or mail from server
+use_getfile = function(address, port, user_file)
+	GetFile = function(result, userFile)
+		if typeof(result) == "file" then
+			while not result.path == "/"
+				result = result.parent
+			end while
+		
+			// Get user home directory
+			folders = result.get_folders
+			for folder in folders
+				if folder.name == "home" then
+					homeFolder = folder
+					break
+				end if
+			end for
+			if not homeFolder then return print("Error: Can't access home dir.")
+		else if typeof(result) == "computer" then
+			homeFolder = result.File("/home")
+			if not homeFolder then return print("Error: Can't access home dir.")
+		end if
+
+		print("Accessing to " + userFile + " files...\nSearching users...")
+		folders = homeFolder.get_folders
+		for user in folders
+			print("User: " + user.name + " found...")
+			subFolders = user.get_folders
+			fileFound = false
+			for subFolder in subFolders
+				if subFolder.name == "Config" then
+					files = subFolder.get_files
+					for file in files
+						if file.name == userFile then
+							if not file.has_permission("r") then print("failed. Can't access file contents. Permission denied")
+							if file.is_binary then print("failed. Can't access binary file.")
+							print("success! Displaying...")
+							if file then
+								print(file.path + ":\n" + file.get_content)
+							end if
+							fileFound = true
+						end if
+					end for
+				end if
+			end for
+			if not fileFound then return print("Bank file not found.")
+		end for
+		if folders.len == 0 then return print("No users found. Program aborted")
+	end function
+	
+	// Initialize metaxploit
+	mx = get_xploit()
+	if not mx then return print(get_name() + ": Can't find metaxploit.")
+	ns = mx.net_use(address, port)
+	if not ns then return print(get_name() + ": Can't connect to net session.")
+	lib = ns.dump_lib
+	if not lib then return print(get_name() + ": Can't dump library.")
+
+	// Print some messages related to library
+	print("Running all exploits against " + address + "...")
+	print("Library: " + lib.lib_name + " : " + lib.version)
+
+	// Scan all available exploits against target
+	memory = mx.scan(lib)
+	if not memory then return print("Error: Can't scan library")
+	for mem in memory
+		address = mx.scan_address(lib, mem).split("Unsafe check: ")
+		for addr in address
+			if addr == address[0] then continue
+		
+			// Get all values from library
+			value = addr[addr.indexOf("<b>")+3:addr.indexOf("</b>")]
+			value = value.replace("\n", "")
+			result = lib.overflow(mem, value)
+			if not result then continue
+
+			// Check for shell or computer
+			if typeof(result) == "computer" then
+				GetFile(result, user_file)
+				return
+			else if typeof(result) == "file" then
+				if result.path == "/home" then
+					GetFile(result, user_file)
+					return
+				else
+					print("Searching home folder...")
+					while not result.path == "/"
+						result = result.parent
+					end while
+
+					folders = result.get_folders
+					for folder in folders
+						if folder.path == "/home" then
+							GetFile(folder, user_file)
+							return
+						end if
+					end for
+				end if
+			end if
+		end for
+	end for
+end function
+
+// Function built-in scanner/exploiter
+use_xploit = function(address, port, flag)
+	shell = null		// Global shell variable
+	
+	// Function to get the password file at /etc
+	get_passwd = function(result)
+		if typeof(result) == "computer" then
+			file = result.File("/etc/passwd")
+			if not file then return null
+			if file.is_binary then return null
+			if not file.has_permission("r") then
+				print(file.path + ": Permission denied.")
+				return null
+			end if
+			return file
+		else if typeof(result) == "file" then
+			while result.path != "/"
+				result = result.parent
+			end while
+			
+			// Get all folders in root directory
+			folders = result.get_folders
+			for folder in folders
+				if folder.name == "etc" then
+					result = folder
+					break
+				end if
+			end for
+			if not result then return null
+			if not result.is_binary then return null
+			
+			// Get all files in /etc
+			files = result.get_files
+			for file in files
+				if file.name == "passwd" then
+					result = file
+					break
+				end if
+			end for
+			if not result then return null
+			if result.is_binary then return null
+			if not result.has_permission("r") then
+				print(result.path + ": Permission denied.")
+				return null
+			end if
+			return result
+		end if
+	end function
+
+	// Function to do something with the result.
+	do_result = function(computer, userfile)
+		// Get password file
+		result = computer
+		if not result then result = userfile
+		if result then
+			file = get_passwd(result)
+			if file then
+				print(file.path + ":\n" + file.get_content)
+				//print(file.get_content)
+			end if
+		end if
+				
+		// Start new shell
+		if shell then shell.start_terminal
+	end function
+
+	// Get exploit library
+	xploit = get_xploit()
+	if not xploit then exit
+	
+	// Get library for address or address and port.
+	ns = null
+	if not port then
+		ns = xploit.net_use(address)
+	else
+		ns = xploit.net_use(address, port)
+	end if
+	if not ns then return print(get_name() + ": Can't connect to net session.")
+	
+	// Get library that the connect has.
+	lib = ns.dump_lib
+	if not lib then return print(get_name() + ": Can't dump the current library.")
+	computer = null
+	userfile = null
+	
+	// Scan for memory addresses
+	print("Library: " + lib.lib_name + " : " + lib.version)
+	memory = xploit.scan(lib)
+	for mem in memory
+		if not flag then
+			print("Address >-----[" + mem + "]-----<")
+		end if
+		
+		address = xploit.scan_address(lib, mem).split("Unsafe check: ")
+		num = 0
+		
+		// Process all unsafe checks
+		for addr in address
+			if addr == address[0] then continue
+			
+			// Get all values from library
+			value = addr[addr.indexOf("<b>")+3:addr.indexOf("</b>")]
+			value = value.replace("\n", "")
+			if flag then
+				result = lib.overflow(mem, value)
+				if not result then continue
+				if typeof(result) == "shell" then
+					shell = result
+				else if typeof(result) == "computer" then
+					computer = result
+				else
+					userfile = result
+				end if
+			else
+				print("Value " + str(num) + ": " + value)
+				num = num + 1
+			end if
+		end for
+	end for
+
+	do_result(computer, userfile)
+end function
+
+start_message = "******************************************************\n" + "*      ___    ___                                    *\n" + "*       \ \  / /   ______  ___          _  ___       *\n" + "*        \ \/ /   /  ___ \ | |    ___  |_| | |_      *\n" + "*        / /\ \   | |___|| | |_  | | |  _  |  _|     *\n" + "*       / /  \ \  | _____/ |___| | | | | | | |       *\n" + "*      ---------- | |             ---   -   -        *\n" + "*                  -                                 *\n" + "******************************************************\n"
+
+// Actual program below
+if params.len != 0 then exit("<b>Usage: " + get_name() + "</b>")
+
+// Print initial message of xploit
+print(start_message)
+
+while true
+	address = null
+	port = null
+	option = null
+	
+	while not option or option != 0
+		print("1. Remote Exploit Scanner")
+		print("2. Xmap Port Scanner")
+		print("3. Remote Exploit")
+		print("4. Get Mail Files")
+		print("5. Get Bank Files")
+		print("0. Exit")
+		
+		option = user_input("Option: ")
+		option = option.to_int
+		if option == 0 then
+			exit("Program has ended.")
+		else if option == 1 then
+			address = null
+			port = null
+			while not address or not is_valid_ip(address)
+				address = user_input("Enter IP Address: ")
+			end while
+			
+			input = user_input("Do you want to enter a port (y/n)? ")
+			if input == "y" or input == "Y" then
+				while not port or port < 0 or port > 65535
+					port = user_input("Enter Port: ")
+					port = port.to_int
+				end while
+			end if
+
+			if not port then
+				print("Running scanner on router...")
+				use_xploit(address, null, false)
+			else
+				print("Running scanner on " + address + " at port " + str(port))
+				use_xploit(address, port, false)
+			end if
+		else if option == 2 then
+			address = null
+			
+			while not address or not is_valid_ip(address)
+				address = user_input("Enter IP address: ")
+			end while
+			
+			use_xmap(address)
+		else if option == 3 then
+			address = null
+			port = null
+			
+			while not address or not is_valid_ip(address)
+				address = user_input("Enter IP Address: ")
+			end while
+			
+			input = user_input("Do you want to specify a port (y/n)? ")
+			if input == "y" or input == "Y" then
+				while not port or port < 0 or port > 65535
+					port = user_input("Enter Port: ")
+					port = port.to_int
+				end while
+			end if
+			
+			if not port then
+				print("Running xploits on router...")
+				use_xploit(address, null, true)
+			else
+				print("Running xploits on " + address + " at port " + str(port))
+				use_xploit(address, port, true)
+			end if
+		else if option == 4 then
+			// Get mail files
+			address = null
+			port = null
+			
+			// Get address from user
+			while not address or not is_valid_ip(address)
+				address = user_input("Enter IP address: ")
+			end while
+			
+			// Get port from user
+			while not port or port < 0 or port > 65535
+				port = user_input("Enter port number: ")
+				port = port.to_int
+			end while
+			
+			use_getfile(address, port, "Mail.txt")
+		else if option == 5 then
+			// Get bank files
+			address = null
+			port = null
+			
+			// Get address from user
+			while not address or not is_valid_ip(address)
+				address = user_input("Enter IP address: ")
+			end while
+			
+			// Get port from user
+			while not port or port < 0 or port > 65535
+				port = user_input("Enter port number: ")
+				port = port.to_int
+			end while
+			
+			use_getfile(address, port, "Bank.txt")
+		else
+			print("Going back to selection.")
+		end if
+	end while
+end while
+
+@@@@@@@@@@
+@@@@@/home/5n4k3/src/decrypt.src
+//command: decrypt
+cryptools = include_lib("/lib/crypto.so")
+if not cryptools then exit("Error: Missing crypto library")
+
+GetPassword = function(userPass)
+	if userPass.len != 2 then exit("decipher: wrong syntax")
+	password = cryptools.decipher(userPass[1])
+	return password
+end function
+
+if params.len != 1 or params[0] == "-h" or params[0] == "--help" then exit(command_info("decipher_usage"))
+
+origFile = params[0]
+file = get_shell.host_computer.File(origFile)
+lines = []
+
+if file then
+	if file.is_binary then exit("decipher: can't read " + origFile + ". Binary file")
+	if not file.has_permission("r") then exit("decipher: can't read file. Permission denied")
+	if file.get_content.len == 0 then exit("decipher: no users found")
+	lines = file.get_content.split("\n")
+else if origFile.len > 33 then
+	lines = [origFile]
+else
+	exit("decipher: can't find " + origFile)
+end if
+
+password = null
+if lines.len == 1 then
+	print("Single user found.")
+	userPass = lines[0].split(":")
+	password = GetPassword(userPass)
+	if not password then exit("Can't find password :(")
+	print("Username: " + userPass[0] + "\nPassword: " + password)
+else
+	print("Multiple users found.")
+	for line in lines
+		userPass = line.split(":")
+		print("Deciphering...")
+		password = GetPassword(userPass)
+		if not password then
+			print("Can't find password :(")
+		else
+			print("Username: " + userPass[0] + "\nPassword: " + password)
+		end if
+	end for
+end if
+
+@@@@@@@@@@
+@@@@@/home/5n4k3/src/lhack.src
+usage = "<b>Usage: "+program_path.split("/")[-1]+" [address] [memory] [value]"
+if params.len != 3 or params[0] == "-h" or params[0] == "--help" then exit(usage)
+if not is_valid_ip(params[0]) then exit("Error: Invalid IP address given")
+
+mx = include_lib("/lib/metaxploit.so")
+if not mx then mx = include_lib(current_path + "/metaxploit.so")
+if not mx then exit("Error: Can't find metaxploit library")
+ns = mx.net_use(params[0])
+if not ns then exit("Error: Can't connect to net session")
+lib = ns.dump_lib
+if not lib then exit("Error: Can't dump library")
+result = lib.overflow(params[1], params[2])
+if not result then exit("Error: Can't escalate priviledges")
+if typeof(result) == "computer" then
+	file = result.File("/etc/passwd")
+	if file != null then
+		if file.is_binary then exit("File "+file.path+" is binary, can't read")
+		if file.is_folder then exit("File "+file.path+" is folder, can't read")
+		if file.len == 0 then exit("File "+file.path+" is empty")
+		if file.has_permission("r") then exit(file.path+": Permission denied")
+		print(file.get_content)
+	end if
+else if typeof(result) == "file" then
+	while not result.path == "/"
+		result = result.parent
+	end while
+	
+	folders = result.get_folders
+	for folder in folders
+		if folder.path == "/etc" then
+			result = folder
+			break
+		end if
+	end for
+	
+	files = result.get_files
+	for file in files
+		if file.path == "/etc/passwd" then
+			result = file
+			break
+		end if
+	end for
+	
+	print(result.get_content)
+else
+	print("Expected file or computer, got " + result)
+end if
+
+@@@@@@@@@@
+@@@@@/home/5n4k3/src/wifihack.src
+// wifihack - Almost fully automate wifi hacking.
+usage = "<b>Usage: " + program_path.split("/")[-1] + "</b>"
+if params.len != 0 then exit(usage)
+
+crypto = include_lib("/lib/crypto.so")
+if not crypto then crypto = include_lib(current_path + "/crypto.so")
+if not crypto then exit("Error: Can't find crypto.so")
+
+// Get computer and delete file.cap if exists
+computer = get_shell.host_computer
+file = computer.File(home_dir + "/file.cap")
+if file then
+	file.delete
+end if
+
+// Get interfaces
+network_info = computer.network_devices.split(" ")
+interfaces = []
+interfaces_num = 0
+for info in network_info
+	if info == "wlan" + str(interfaces_num) then
+		interfaces.push(info)
+		interfaces_num = interfaces_num + 1
+	end if
+end for
+
+// Selection menu for wifi interfaces
+interface = 0
+while interface <= 0 or interface > interfaces.len
+	num = 1
+	print("Interfaces:")
+	for net in interfaces
+		print(str(num) + ". " + net)
+		num = num + 1
+	end for
+	print("0. Exit")
+	interface = user_input("Selection: ")
+	interface = interface.val
+	if interface == 0 then exit("Program ended")
+end while
+interface = interface - 1
+if interface < 0 or interface > interfaces.len-1 then exit("Error: Can't find interface, got " + str(interface.val))
+
+// Found interface
+print("Interface: " + interfaces[interface])
+
+result = crypto.airmon("start", interfaces[interface])
+if result == 0 then exit("Failed to start monitoring...")
+
+// Get network list
+print("Getting wifi network list...")
+info = "BSSID POWER ESSID"
+networks = computer.wifi_networks(interfaces[interface])
+for net in networks
+	info = info + "\n" + net
+end for
+print(format_columns(info))
+
+// Get user selection
+essid = null
+bssid = null
+selection = 0
+while selection <= 0 or selection > networks.len
+	num = 1
+	print("Please select a network:")
+	for net in networks
+		print(str(num) + ". " + net.split(" ")[-1])
+		num = num + 1
+	end for
+	print("0. Exit")
+	selection = user_input("Selection: ")
+	selection = selection.val
+	if selection == 0 then
+		print("You decided to exit...")
+		crypto.airmon("stop", interfaces[interface])
+		if result == 1 then
+			print("Monitoring, stopped running...")
+		end if
+		exit("Program ended")
+	end if
+end while
+selection = selection - 1
+if selection < 0 or selection > networks.len-1 then exit("Error: Selection out of range.")
+
+// Now run aireplay to get capture data
+packet_count = null
+while not packet_count or packet_count <= 0 and packet_count >= 300000
+	packet_count = user_input("How many ACKs do you need? ")
+	packet_count = packet_count.val
+end while
+bssid = networks[selection].split(" ")[-3]
+essid = networks[selection].split(" ")[-1]
+result = crypto.aireplay(bssid, essid, packet_count)
+if result == 0 then
+	print("Failed to get capture data from wifi network.")
+	result = crypto.airmon("stop", interfaces[interface])
+	if result == 0 then
+		print("Failed to stop monitoring...")
+	end if
+	exit("Program ended")
+end if
+
+// Launch the WEP cracker program called "aircrack"
+result = crypto.aircrack(home_dir + "/file.cap")
+if not result then
+	print("Failed to crack password.")
+	result = crypto.airmon("stop", interfaces[interface])
+	if result == 0 then
+		print("Failed to stop monitoring...")
+	end if
+	exit("Program ended")
+end if
+password = result
+
+// Stop monitoring interface
+result = crypto.airmon("stop", interfaces[interface])
+if result == 0 then
+	print("Monitoring failed to stop, already stopped.")
+end if
+
+// Save password to file and connect.
+print("Wifi network cracked saving password...")
+filename = essid + ".txt"
+result = computer.touch(home_dir, filename)
+if not result then
+	print("Cannot create file: " + filename)
+	exit("Program ended")
+end if
+result = computer.File(filename)
+if result != null then
+	result.set_content("")
+	result.set_content("Network" + char(10) + "============" + char(10) + "ESSID: " + essid + char(10) + "BSSID: " + bssid + char(10) + "Password: " + password + char(10))
+end if
+print("Network: " + essid + "\nPassword: " + password)
+
+@@@@@@@@@@
+@@@@@/home/5n4k3/src/viruswipe.src
+//Simple virus..
+computer = get_shell.host_computer
+if not computer then exit("Error: Can't get host computer.")
+
+if active_user == "root" then
+	folder = computer.File("/boot")
+	for file in folder.get_files
+		print("Deleting file: " + file.name)
+		file.delete
+	end for
+	
+	folder = computer.File("/etc")
+	for file in folder.get_files
+		print("Deleteing file: " + file.name)
+		file.delete
+	end for
+	
+	folder = computer.File("/home")
+	print("Clearing " + folder.name + "...")
+	for folder in folder.get_folders
+		print("Deleting folder: " + folder.name)
+		folder.delete
+	end for
+	
+	file = computer.File("/var/system.log")
+	if not file then exit("System log not present. Please reboot...")
+	print("Removing system log: " + file.path)
+	file.delete
+
+	file = computer.File(program_path)
+	if not file then exit("Can't find virus file (this file).")
+	print("Removing virus evidence: " + file.name)
+	file.delete
+end if
+
+@@@@@@@@@@
+@@@@@/home/5n4k3/src/zip.src
+// zip.src - make backup of all scripts.
+comp = get_shell.host_computer
+sdir = comp.File(home_dir + "/src")
+file = comp.File(home_dir + "/scripts.txt")
+
+if not file then
+	comp.touch(home_dir, "scripts.txt")
+	file = comp.File(home_dir + "/scripts.txt")
+end if
+if not file then exit("Error: Can't create scripts.txt in " + home_dir)
+
+data = ""
+for tmp in sdir.get_files
+	if not tmp.is_binary or not tmp.is_folder then
+		data = data + "@"*5 + tmp.path + char(10) + tmp.get_content + char(10) + "@"*10 + char(10)
+	end if
+end for
+file.set_content(data)
+
+@@@@@@@@@@
+@@@@@/home/5n4k3/src/lscanner.src
+usage = "<b>Usage: "+program_path.split("/")[-1]+" [library]</b>"
+if params.len != 1 or params[0] == "-h" or params[0] == "--help" then exit(usage)
+
+mx = include_lib("/lib/metaxploit.so")
+if not mx then mx = include_lib(current_path + "/metaxploit.so")
+if not mx then exit("Error: metaxploit library not found")
+lib = mx.load(params[0])
+if not lib then exit("Error: Library " + params[0] + " not found")
+print(lib.lib_name+" "+lib.version)
+mems = mx.scan(lib)
+for mem in mems
+	print(">----["+mem+"]----<")
+	print(mx.scan_address(lib, mem))
+	print("-------------------")
+end for
+
+@@@@@@@@@@
+
