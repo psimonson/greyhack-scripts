@@ -223,7 +223,6 @@ use_xploit = function(address, port, flag)
 			file = get_passwd(result)
 			if file then
 				print(file.path + ":\n" + file.get_content)
-				//print(file.get_content)
 			end if
 		end if
 				
@@ -275,7 +274,7 @@ use_xploit = function(address, port, flag)
 					shell = result
 				else if typeof(result) == "computer" then
 					computer = result
-				else
+				else if typeof(result) == "file" then
 					userfile = result
 				end if
 			else
