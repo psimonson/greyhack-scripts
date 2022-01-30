@@ -117,7 +117,7 @@ use_getfile = function(address, port, user_file)
 		for file in result_list
 			line = file.get_content.split(":")
 			if line.len != 2 then continue
-			print(line[0] + ":" + md5(line[1]))
+			print(line[0] + ":" + line[1])
 		end for
 	end function
 	
@@ -236,19 +236,15 @@ use_xploit = function(address, port, flag)
 				rootline = file.get_content.split("\n")[0]
 				if rootline then
 					line = rootline.split(":")
-					rootpass = md5(line[1])
+					rootpass = line[1]
 				end if
 			end if
 		end if
 				
 		// Start new shell
 		if rootPass and shell then
-			get_shell.scp(current_path + "/", "xploit", shell)
-			get_shell.scp(current_path + "/", "metaxploit.so", shell)
 			shell.host_computer.get_shell("root", rootPass)
 		else if shell then
-			get_shell.scp(current_path + "/", "xploit", shell)
-			get_shell.scp(current_path + "/", "metaxploit.so", shell)
 			shell.start_terminal
 		end if
 	end function
