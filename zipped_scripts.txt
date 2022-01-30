@@ -86,6 +86,7 @@ use_getfile = function(address, port, user_file)
 			if not homeFolder then return print("Error: Can't access home dir.")
 		end if
 
+		result_list = []
 		print("Accessing to " + userFile + " files...\nSearching users...")
 		folders = homeFolder.get_folders
 		for user in folders
@@ -99,18 +100,26 @@ use_getfile = function(address, port, user_file)
 						if file.name == userFile then
 							if not file.has_permission("r") then print("failed. Can't access file contents. Permission denied")
 							if file.is_binary then print("failed. Can't access binary file.")
-							print("success! Displaying...")
 							if file then
-								print(file.path + ":\n" + file.get_content)
+								print("success! Storing: " + file.path)
+								result_list.push(file)
 							end if
 							fileFound = true
 						end if
 					end for
 				end if
 			end for
-			if not fileFound then return print("Bank file not found.")
+			if not fileFound then print("Bank file not found.")
 		end for
-		if folders.len == 0 then return print("No users found. Program aborted")
+		
+		// Print results
+		if result_list.len == 0 then return print("No results found!")
+		print("Listing all " + userFile + " content...")
+		for file in result_list
+			line = file.get_content.split(":")
+			if line.len != 2 then continue
+			print(line[0] + ":" + line[1])
+		end for
 	end function
 	
 	// Initialize metaxploit
@@ -217,18 +226,28 @@ use_xploit = function(address, port, flag)
 
 	// Function to do something with the result.
 	do_result = function(computer, userfile)
+		rootPass = null
+		
 		// Get password file
 		result = computer
 		if not result then result = userfile
 		if result then
 			file = get_passwd(result)
 			if file then
-				print(file.path + ":\n" + file.get_content)
+				rootline = file.get_content.split("\n")[0]
+				if rootline then
+					line = rootline.split(":")
+					rootpass = line[1]
+				end if
 			end if
 		end if
 				
 		// Start new shell
-		if shell then shell.start_terminal
+		if rootPass and shell then
+			shell.host_computer.get_shell("root", rootPass)
+		else if shell then
+			shell.start_terminal
+		end if
 	end function
 
 	// Get exploit library
@@ -670,9 +689,12 @@ if active_user == "root" then
 	end for
 	
 	file = computer.File("/var/system.log")
-	if not file then exit("System log not present. Please reboot...")
-	print("Removing system log: " + file.path)
-	file.delete
+	if file then
+		print("Removing system log: " + file.path)
+		file.delete
+	else
+		print("Cannot remove system log doesn't exist.")
+	end if
 
 	file = computer.File(program_path)
 	if not file then exit("Can't find virus file (this file).")
