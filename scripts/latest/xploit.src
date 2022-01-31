@@ -5,7 +5,7 @@
 
 // Function to get program name
 get_name = function()
-	return program_path.split("/")[-1]
+	return parent_path(program_path)
 end function
 
 // Function to get program path

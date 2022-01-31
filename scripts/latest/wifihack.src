@@ -3,12 +3,12 @@ usage = "<b>Usage: " + program_path.split("/")[-1] + "</b>"
 if params.len != 0 then exit(usage)
 
 crypto = include_lib("/lib/crypto.so")
-if not crypto then crypto = include_lib(current_path + "/crypto.so")
+if not crypto then crypto = include_lib(parent_path(program_path) + "/crypto.so")
 if not crypto then exit("Error: Can't find crypto.so")
 
 // Get computer and delete file.cap if exists
 computer = get_shell.host_computer
-file = computer.File(home_dir + "/file.cap")
+file = computer.File(current_path + "/file.cap")
 if file then
 	file.delete
 end if

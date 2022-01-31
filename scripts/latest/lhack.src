@@ -1,13 +1,10 @@
-usage = "<b>Usage: "+program_path.split("/")[-1]+" [address] [memory] [value]"
+usage = "<b>Usage: "+program_path.split("/")[-1]+" [lib] [memory] [value]"
 if params.len != 3 or params[0] == "-h" or params[0] == "--help" then exit(usage)
-if not is_valid_ip(params[0]) then exit("Error: Invalid IP address given")
 
 mx = include_lib("/lib/metaxploit.so")
-if not mx then mx = include_lib(current_path + "/metaxploit.so")
+if not mx then mx = include_lib(parent_path(program_path) + "/metaxploit.so")
 if not mx then exit("Error: Can't find metaxploit library")
-ns = mx.net_use(params[0])
-if not ns then exit("Error: Can't connect to net session")
-lib = ns.dump_lib
+lib = mx.load("/lib/" + params[0])
 if not lib then exit("Error: Can't dump library")
 result = lib.overflow(params[1], params[2])
 if not result then exit("Error: Can't escalate priviledges")
