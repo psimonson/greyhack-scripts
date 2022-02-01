@@ -1,0 +1,47 @@
+// routerbank.src - Hack router remotely to retrieve all bank info computers.
+// Import my helper code
+import_code("/home/5n4k3/src/helper.src")
+
+if params.len < 1 or params.len > 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [public ip] (local ip)</b>")
+if not is_valid_ip(params[0]) then exit(get_name() + ": One or more IP address(es) is/are invalid.")
+
+mx = get_library("metaxploit.so", true)
+lib = use_exploit(params[0])
+
+exploits = get_exploits(params[0])
+if not exploits then exit(get_name() + ": Can't find vulnerabilities.")
+
+// Will show a log after this runs
+for exploit in exploits
+	address = exploit["address"]
+	print("<color=#00CC00>Address >=====[</color><b>" + address + "</b><color=#00CC00>]=====<</color>")
+	for value in exploit["values"]
+		print("<color=#CC0000>Value >=====[</color><b>" + value + "</b><color=#CC0000>]=====<</color>")
+		result = lib.overflow(address, value)
+		if params.len == 2 and is_valid_ip(params[1]) then
+			result = lib.overflow(address, value, params[1])
+		end if
+		if not result then continue
+			
+		if typeof(result) == "computer" then
+			homedir = result.File("/home")
+			if not homedir then exit(get_name() + ": Home directory doesn't exist.")
+			if not homedir.has_permission("r") then exit(get_name() + ": Permission denied.")
+				
+			// Process home directories
+			for folder in homedir.get_folders
+				for sub_folder in folder.get_folders
+					files = sub_folder.get_files
+					for file in files
+						if file.name == "Bank.txt" then
+							print(file.get_content)
+							break
+						end if
+					end for
+				end for
+			end for
+			exit
+		end if
+	end for
+end for
+

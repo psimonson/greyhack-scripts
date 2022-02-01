@@ -8,6 +8,20 @@ get_path = function()
 	return parent_path(program_path)
 end function
 
+use_exploit = function(address, port = null)
+	mx = get_library("metaxploit.so", true)
+	ns = null
+	if not port then
+		ns = mx.net_use(address)
+	else
+		ns = mx.net_use(address, port)
+	end if
+	if not ns then exit(get_name() + ": Can't connect to net session.")
+	lib = ns.dump_lib
+	if not lib then exit(get_name() + ": Can't dump library.")
+	return lib
+end function
+
 get_library = function(library, search)
 	lib_dirs = ["/lib", get_path()]
 	if search then
@@ -22,4 +36,28 @@ get_library = function(library, search)
 	end if
 end function
 
+// Function scan for all exploits on remote system
+get_exploits = function(address, port = null)
+	// Build a map of all exploits
+	mem_map = []
+	print("Scanning for exploits: [<color=#00DD00>" + lib.lib_name + ":" + lib.version + "</color>]")
+	memory = mx.scan(lib)
+	for mem in memory
+		map = {}
+		list = []
+		data = mx.scan_address(lib, mem).split("Unsafe check: ")
+		for line in data
+			if line == data[0] then continue
+			
+			value = line[line.indexOf("<b>")+3:line.indexOf("</b>")]
+			value = value.replace("\n", "")
+			list = list + [value]
+		end for
+		map["address"] = mem
+		map["values"] = list
+		mem_map = mem_map + [map]
+	end for
+	if not mem_map then return null
+	return mem_map
+end function
 
