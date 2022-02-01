@@ -1,28 +1,28 @@
 //command: decrypt
-cryptools = include_lib("/lib/crypto.so")
-if not cryptools then exit("Error: Missing crypto library")
+import_code("/home/5n4k3/src/helper.src")
+crypto = get_library("crypto.so", true)
 
 GetPassword = function(userPass)
-	if userPass.len != 2 then exit("decipher: wrong syntax")
-	password = cryptools.decipher(userPass[1])
+	if userPass.len != 2 then exit(get_name() + ": wrong syntax")
+	password = crypto.decipher(userPass[1])
 	return password
 end function
 
-if params.len != 1 or params[0] == "-h" or params[0] == "--help" then exit(command_info("decipher_usage"))
+if params.len != 1 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [hash|file]</b>")
 
 origFile = params[0]
 file = get_shell.host_computer.File(origFile)
 lines = []
 
 if file then
-	if file.is_binary then exit("decipher: can't read " + origFile + ". Binary file")
-	if not file.has_permission("r") then exit("decipher: can't read file. Permission denied")
-	if file.get_content.len == 0 then exit("decipher: no users found")
+	if file.is_binary then exit(get_name() + ": can't read " + origFile + ". Binary file")
+	if not file.has_permission("r") then exit(get_name() + ": can't read file. Permission denied")
+	if file.get_content.len == 0 then exit(get_name() + ": no users found")
 	lines = file.get_content.split("\n")
 else if origFile.len > 33 then
 	lines = [origFile]
 else
-	exit("decipher: can't find " + origFile)
+	exit(get_name() + ": can't find " + origFile)
 end if
 
 password = null
@@ -39,9 +39,9 @@ else
 		print("Deciphering...")
 		password = GetPassword(userPass)
 		if not password then
-			print("Can't find password :(")
+			print("<color=#BB0000>Can't find password :(</color>")
 		else
-			print("Username: " + userPass[0] + "\nPassword: " + password)
+			print("<color=#AA8855><b>Password</b> found</color> => " + userPass[0] + " : " + password)
 		end if
 	end for
 end if

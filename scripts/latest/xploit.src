@@ -3,24 +3,12 @@
 // Entire source written by Philip "5n4k3" Simonson
 ///////////////////////////////////////////////////////////////////
 
-// Function to get program name
-get_name = function()
-	return parent_path(program_path)
-end function
-
-// Function to get program path
-get_path = function()
-	result = program_path.split("/")
-	result.remove(result.len - 1)
-	result = result.join("/")
-	return result
-end function
+// Include my helper code
+import_code("/home/5n4k3/src/helper.src")
 
 // Function to get metaxploit library
 get_xploit = function()
-	xploit = include_lib("/lib/metaxploit.so")
-	if not xploit then xploit = include_lib(get_path() + "/metaxploit.so")
-	if not xploit then exit(get_name() + ": metaxploit.so not found.")
+	xploit = get_library("metaxploit.so", true)
 	return xploit
 end function
 

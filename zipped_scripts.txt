@@ -4,24 +4,12 @@
 // Entire source written by Philip "5n4k3" Simonson
 ///////////////////////////////////////////////////////////////////
 
-// Function to get program name
-get_name = function()
-	return parent_path(program_path)
-end function
-
-// Function to get program path
-get_path = function()
-	result = program_path.split("/")
-	result.remove(result.len - 1)
-	result = result.join("/")
-	return result
-end function
+// Include my helper code
+import_code("/home/5n4k3/src/helper.src")
 
 // Function to get metaxploit library
 get_xploit = function()
-	xploit = include_lib("/lib/metaxploit.so")
-	if not xploit then xploit = include_lib(get_path() + "/metaxploit.so")
-	if not xploit then exit(get_name() + ": metaxploit.so not found.")
+	xploit = get_library("metaxploit.so", true)
 	return xploit
 end function
 
@@ -428,30 +416,30 @@ end while
 @@@@@@@@@@
 @@@@@/home/5n4k3/src/decrypt.src
 //command: decrypt
-cryptools = include_lib("/lib/crypto.so")
-if not cryptools then exit("Error: Missing crypto library")
+import_code("/home/5n4k3/src/helper.src")
+crypto = get_library("crypto.so", true)
 
 GetPassword = function(userPass)
-	if userPass.len != 2 then exit("decipher: wrong syntax")
-	password = cryptools.decipher(userPass[1])
+	if userPass.len != 2 then exit(get_name() + ": wrong syntax")
+	password = crypto.decipher(userPass[1])
 	return password
 end function
 
-if params.len != 1 or params[0] == "-h" or params[0] == "--help" then exit(command_info("decipher_usage"))
+if params.len != 1 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [hash|file]</b>")
 
 origFile = params[0]
 file = get_shell.host_computer.File(origFile)
 lines = []
 
 if file then
-	if file.is_binary then exit("decipher: can't read " + origFile + ". Binary file")
-	if not file.has_permission("r") then exit("decipher: can't read file. Permission denied")
-	if file.get_content.len == 0 then exit("decipher: no users found")
+	if file.is_binary then exit(get_name() + ": can't read " + origFile + ". Binary file")
+	if not file.has_permission("r") then exit(get_name() + ": can't read file. Permission denied")
+	if file.get_content.len == 0 then exit(get_name() + ": no users found")
 	lines = file.get_content.split("\n")
 else if origFile.len > 33 then
 	lines = [origFile]
 else
-	exit("decipher: can't find " + origFile)
+	exit(get_name() + ": can't find " + origFile)
 end if
 
 password = null
@@ -468,9 +456,9 @@ else
 		print("Deciphering...")
 		password = GetPassword(userPass)
 		if not password then
-			print("Can't find password :(")
+			print("<color=#BB0000>Can't find password :(</color>")
 		else
-			print("Username: " + userPass[0] + "\nPassword: " + password)
+			print("<color=#AA8855><b>Password</b> found</color> => " + userPass[0] + " : " + password)
 		end if
 	end for
 end if
@@ -528,9 +516,7 @@ end if
 usage = "<b>Usage: " + program_path.split("/")[-1] + "</b>"
 if params.len != 0 then exit(usage)
 
-crypto = include_lib("/lib/crypto.so")
-if not crypto then crypto = include_lib(parent_path(program_path) + "/crypto.so")
-if not crypto then exit("Error: Can't find crypto.so")
+crypto = get_library("crypto.so", true)
 
 // Get computer and delete file.cap if exists
 computer = get_shell.host_computer
@@ -574,13 +560,15 @@ result = crypto.airmon("start", interfaces[interface])
 if result == 0 then exit("Failed to start monitoring...")
 
 // Get network list
-print("Getting wifi network list...")
-info = "BSSID POWER ESSID"
-networks = computer.wifi_networks(interfaces[interface])
-for net in networks
-	info = info + "\n" + net
-end for
-print(format_columns(info))
+get_netlist = function()
+	print("Getting wifi network list...")
+	info = "BSSID POWER ESSID"
+	networks = computer.wifi_networks(interfaces[interface])
+	for net in networks
+		info = info + "\n" + net
+	end for
+	print(format_columns(info))
+end function
 
 // Get user selection
 essid = null
@@ -588,6 +576,7 @@ bssid = null
 selection = 0
 while selection <= 0 or selection > networks.len
 	num = 1
+	get_netlist()
 	print("Please select a network:")
 	for net in networks
 		print(str(num) + ". " + net.split(" ")[-1])
@@ -737,6 +726,91 @@ for mem in mems
 	print(mx.scan_address(lib, mem))
 	print("-------------------")
 end for
+
+@@@@@@@@@@
+@@@@@/home/5n4k3/src/helper.src
+// helper.src - Some miscellaneous functions.
+
+get_name = function()
+	return program_path.split("/")[-1]
+end function
+
+get_path = function()
+	return parent_path(program_path)
+end function
+
+get_library = function(library, search)
+	lib_dirs = ["/lib", get_path()]
+	if search then
+		for lib_dir in lib_dirs
+			lib = include_lib(lib_dir + "/" + library)
+			if not lib then continue
+			return lib
+		end for
+		if not lib then exit(get_name() + ": Can't find " + library + " anywhere.")
+	else
+		return include_lib(library)
+	end if
+end function
+
+
+
+@@@@@@@@@@
+@@@@@/home/5n4k3/src/routernuke.src
+// routernuke.src - Get root access if possible.
+import_code("/home/5n4k3/src/helper.src")
+
+if params.len < 1 or params.len > 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [address] (lan_address)</b>")
+if not is_valid_ip(params[0]) or not is_valid_ip(params[1]) then exit(get_name() + ": Not a valid IP address.")
+
+mx = get_library("metaxploit.so", true)
+ns = mx.net_use(params[0])
+if not ns then exit(get_name() + ": Can't connect to net session.")
+lib = ns.dump_lib
+if not lib then exit(get_name() + ": Can't dump library.")
+shell = null
+root_hash = null
+
+// Main code below.
+memory = mx.scan(lib)
+for mem in memory
+	data = mx.scan_address(lib, mem).split("Unsafe check: ")
+	for line in data
+		if line == data[0] then continue
+		
+		// Get value from memory address
+		value = line[line.indexOf("<b>")+3:line.indexOf("</b>")]
+		value = value.replace("\n", "")
+		result = lib.overflow(mem, value, params[1])
+		if not result then continue
+		
+		// Process exploit
+		if typeof(result) == "computer" then
+			//result.host_computer.change_password("root", "dick")
+			file = result.File("/etc/passwd")
+			if not file then continue
+			if not file.has_permission("r") then exit(get_name() + ": Permission denied.")
+			if file.is_binary then exit(get_name() + ": File was a binary.")
+				
+			cont = file.get_content.split("\n")[0]
+			if not cont then exit(get_name() + "Can't get file content.")
+			root_hash = cont.split(":")
+			if root_hash.len != 2 then root_hash = null
+		else if not shell and typeof(result) == "shell" then
+			shell = result
+		else
+			print("Computer needed but, got " + typeof(result))
+		end if
+	end for
+end for
+
+if root_hash then
+	root_shell = shell.host_computer.get_shell(root_hash[0], root_hash[1])
+	if not root_shell then exit(get_name() + ": Can't get root shell.")
+	root_shell.start_terminal
+else
+	shell.start_terminal
+end if
 
 @@@@@@@@@@
 

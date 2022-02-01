@@ -1,87 +1,55 @@
-usage="<b>Usage: "+program_path.split("/")[-1]+" [address]"
-if params.len != 1 or params[0] == "-h" or params[0] == "--help" then exit(usage)
-if not is_valid_ip(params[0]) then exit("Error: Invalid address given")
+// routernuke.src - Get root access if possible.
+import_code("/home/5n4k3/src/helper.src")
 
-get_folder = function(folderName)
-	if typeof(folderName) != "string" then exit("get_folder: folderName not equal string.")
+if params.len < 1 or params.len > 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [address] (lan_address)</b>")
+if not is_valid_ip(params[0]) or not is_valid_ip(params[1]) then exit(get_name() + ": Not a valid IP address.")
 
-	foundFolder = null
-	folders = result.get_folders
-	for folder in folders
-		if folder.name == folderName then
-			foundFolder = folder
-			break
-		end if
-	end for
-
-	if not foundFolder then
-		print("get_folder: Can't find folder.")
-		return null
-	end if
-	
-	if not foundFolder.is_binary then
-		print("get_folder: Path found but is a file.")
-		return null
-	end if
-	
-	return foundFolder
-end function
-
-quit = function(shell, file)
-	if file != null then
-		print("File: /etc/" + file.name + ":")
-		print(file.get_content)
-	end if
-	shell.start_terminal
-end function
-
-shell = null
-passFile = null
-
-mx = include_lib("/lib/metaxploit.so")
-if not mx then mx = include_lib(current_path + "/metaxploit.so")
-if not mx then exit("Error: Can't find metaxploit.so")
+mx = get_library("metaxploit.so", true)
 ns = mx.net_use(params[0])
-if not ns then exit("Error: Can't connect to net session")
+if not ns then exit(get_name() + ": Can't connect to net session.")
 lib = ns.dump_lib
-print("Running all exploits for router...")
-print("Library: " + lib.lib_name + " : " + lib.version)
+if not lib then exit(get_name() + ": Can't dump library.")
+shell = null
+root_hash = null
+
+// Main code below.
 memory = mx.scan(lib)
 for mem in memory
-	address = mx.scan_address(lib, mem).split("Unsafe check: ")
-	for addr in address
-		if addr == address[0] then continue
+	data = mx.scan_address(lib, mem).split("Unsafe check: ")
+	for line in data
+		if line == data[0] then continue
 		
-		// Get all values from library
-		value = addr[addr.indexOf("<b>")+3:addr.indexOf("</b>")]
+		// Get value from memory address
+		value = line[line.indexOf("<b>")+3:line.indexOf("</b>")]
 		value = value.replace("\n", "")
-		result = lib.overflow(mem, value)
+		result = lib.overflow(mem, value, params[1])
 		if not result then continue
 		
-		// Check for router and process
-		if typeof(result) == "shell" then
+		// Process exploit
+		if typeof(result) == "computer" then
+			//result.host_computer.change_password("root", "dick")
+			file = result.File("/etc/passwd")
+			if not file then continue
+			if not file.has_permission("r") then exit(get_name() + ": Permission denied.")
+			if file.is_binary then exit(get_name() + ": File was a binary.")
+				
+			cont = file.get_content.split("\n")[0]
+			if not cont then exit(get_name() + "Can't get file content.")
+			root_hash = cont.split(":")
+			if root_hash.len != 2 then root_hash = null
+		else if not shell and typeof(result) == "shell" then
 			shell = result
-		else 		if typeof(result) == "file" then
-			while result.path != "/"
-				result = result.parent
-			end while
-			
-			etcFolder = get_folder("etc")
-			if not etcFolder then exit
-		
-			files = etcFolder.get_files
-			for file in files
-				if file.name == "passwd" then
-					if not passFile then
-						passFile = file
-					end if
-				end if
-			end for
 		else
-			print("Expected shell, got " + result)
+			print("Computer needed but, got " + typeof(result))
 		end if
-	
-		if shell and passFile then quit(shell, passFile)
 	end for
 end for
+
+if root_hash then
+	root_shell = shell.host_computer.get_shell(root_hash[0], root_hash[1])
+	if not root_shell then exit(get_name() + ": Can't get root shell.")
+	root_shell.start_terminal
+else
+	shell.start_terminal
+end if
 
