@@ -1,0 +1,25 @@
+// helper.src - Some miscellaneous functions.
+
+get_name = function()
+	return program_path.split("/")[-1]
+end function
+
+get_path = function()
+	return parent_path(program_path)
+end function
+
+get_library = function(library, search)
+	lib_dirs = ["/lib", get_path()]
+	if search then
+		for lib_dir in lib_dirs
+			lib = include_lib(lib_dir + "/" + library)
+			if not lib then continue
+			return lib
+		end for
+		if not lib then exit(get_name() + ": Can't find " + library + " anywhere.")
+	else
+		return include_lib(library)
+	end if
+end function
+
+
