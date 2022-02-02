@@ -6,7 +6,7 @@ if not mx then mx = include_lib(parent_path(program_path) + "/metaxploit.so")
 if not mx then exit("Error: metaxploit library not found")
 lib = mx.load(params[0])
 if not lib then exit("Error: Library " + params[0] + " not found")
-print("Library: " + lib.lib_name + " : " + lib.version)
+print("Library: " + lib.lib_name + " : " + lib.version + "\n")
 mems = mx.scan(lib)
 for mem in mems
 	print(">----[" + mem + "]----<")

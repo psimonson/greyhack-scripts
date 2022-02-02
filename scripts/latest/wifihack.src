@@ -1,4 +1,5 @@
 // wifihack - Almost fully automate wifi hacking.
+import_code("/home/5n4k3/src/helper.src")
 usage = "<b>Usage: " + program_path.split("/")[-1] + "</b>"
 if params.len != 0 then exit(usage)
 
@@ -54,15 +55,17 @@ get_netlist = function()
 		info = info + "\n" + net
 	end for
 	print(format_columns(info))
+	return networks
 end function
 
 // Get user selection
 essid = null
 bssid = null
+networks = []
 selection = 0
 while selection <= 0 or selection > networks.len
 	num = 1
-	get_netlist()
+	networks = get_netlist()
 	print("Please select a network:")
 	for net in networks
 		print(str(num) + ". " + net.split(" ")[-1])

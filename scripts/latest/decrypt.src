@@ -31,17 +31,16 @@ if lines.len == 1 then
 	userPass = lines[0].split(":")
 	password = GetPassword(userPass)
 	if not password then exit("Can't find password :(")
-	print("Username: " + userPass[0] + "\nPassword: " + password)
+	print("Username: " + userPass[0] + "\nPassword: " + password + "\n")
 else
 	print("Multiple users found.")
 	for line in lines
 		userPass = line.split(":")
-		print("Deciphering...")
 		password = GetPassword(userPass)
 		if not password then
-			print("<color=#BB0000>Can't find password :(</color>")
+			print("<color=#BB0000>Can't find password :(</color>\n")
 		else
-			print("<color=#AA8855><b>Password</b> found</color> => " + userPass[0] + " : " + password)
+			print("<color=#AA8855><b>Password</b> found</color> => " + userPass[0] + " : " + password + "\n")
 		end if
 	end for
 end if
