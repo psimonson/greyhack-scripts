@@ -16,8 +16,8 @@ for exploit in exploits
 	address = exploit["address"]
 	print("<color=#00CC00>Address >=====[</color><b>" + address + "</b><color=#00CC00>]=====<</color>")
 	for value in exploit["values"]
-		print("<color=#CC0000>Value >=====[</color><b>" + value["value"] + "</b><color=#CC0000>]=====<</color>")
-		result = lib.overflow(address, value["value"])
+		print("<color=#CC0000>Value >=====[</color><b>" + value + "</b><color=#CC0000>]=====<</color>")
+		result = lib.overflow(address, value)
 		if not result then continue
 			
 		if typeof(result) == "computer" then

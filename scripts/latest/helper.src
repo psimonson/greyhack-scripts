@@ -8,6 +8,57 @@ get_path = function()
 	return parent_path(program_path)
 end function
 
+get_file = function(result, user_folder, user_file)
+	if typeof(result) == "file" then
+		while not result.path == "/"
+			result = result.parent
+		end while
+		
+		// Get user home directory
+		folders = result.get_folders
+		for folder in folders
+			if folder.name == user_folder then
+				home_folder = folder
+				break
+			end if
+		end for
+		if not home_folder then exit("Error: Can't access " + user_folder + " dir.")
+	else if typeof(result) == "computer" then
+		home_folder = result.File("/home")
+		if not home_folder then exit("Error: Can't access " + user_folder + " dir.")
+	end if
+	
+	bank_info = []
+	print("Accessing to " + user_file + " files...")
+	folders = home_folder.get_folders
+	for user in folders
+		print("User: " + user.name + " found...")
+		sub_folders = user.get_folders
+		file_found = false
+		for sub_folder in sub_folders
+			if sub_folder.name == "Config" then
+				files = sub_folder.get_files
+				for file in files
+					if file.name == user_file then
+						if not file.has_permission("r") then print("failed. Can't access file contents. Permission denied")
+						print("success! Storing...")
+						bank_info.push(file)
+						file_found = true
+					end if
+				end for
+			end if
+		end for
+		if not file_found then print("Bank file not found.")
+	end for
+	if folders.len == 0 or bank_info.len == 0 then print("No users found. Program aborted")
+	
+	// Print results
+	print("Printing all saved bank info...\n========================\n")
+	for bank in bank_info
+		print(bank.get_content)
+	end for
+end function
+
 use_exploit = function(address, port = null)
 	mx = get_library("metaxploit.so", true)
 	ns = null
@@ -52,15 +103,7 @@ get_exploits = function(address, port = null)
 			value = line[line.indexOf("<b>")+3:line.indexOf("</b>")]
 			value = value.replace("\n", "")
 			
-			result = lib.overflow(mem, value)
-			if not result then continue
-			type = typeof(result)
-			
-			values = {}
-			values["value"] = value
-			values["type"] = type
-			list.push(values)
-			//print(str(list) + "\n===========\n")
+			list.push(value)
 		end for
 		map["address"] = mem
 		map["values"] = list

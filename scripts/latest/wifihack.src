@@ -2,9 +2,7 @@
 usage = "<b>Usage: " + program_path.split("/")[-1] + "</b>"
 if params.len != 0 then exit(usage)
 
-crypto = include_lib("/lib/crypto.so")
-if not crypto then crypto = include_lib(parent_path(program_path) + "/crypto.so")
-if not crypto then exit("Error: Can't find crypto.so")
+crypto = get_library("crypto.so", true)
 
 // Get computer and delete file.cap if exists
 computer = get_shell.host_computer
@@ -48,13 +46,15 @@ result = crypto.airmon("start", interfaces[interface])
 if result == 0 then exit("Failed to start monitoring...")
 
 // Get network list
-print("Getting wifi network list...")
-info = "BSSID POWER ESSID"
-networks = computer.wifi_networks(interfaces[interface])
-for net in networks
-	info = info + "\n" + net
-end for
-print(format_columns(info))
+get_netlist = function()
+	print("Getting wifi network list...")
+	info = "BSSID POWER ESSID"
+	networks = computer.wifi_networks(interfaces[interface])
+	for net in networks
+		info = info + "\n" + net
+	end for
+	print(format_columns(info))
+end function
 
 // Get user selection
 essid = null
@@ -62,6 +62,7 @@ bssid = null
 selection = 0
 while selection <= 0 or selection > networks.len
 	num = 1
+	get_netlist()
 	print("Please select a network:")
 	for net in networks
 		print(str(num) + ". " + net.split(" ")[-1])
