@@ -971,10 +971,10 @@ lib = null
 exploits = null
 if params.len == 2 and params[1].to_int >= 0 and params[1].to_int <= 65535 then
 	lib = use_exploit(params[0], params[1].to_int)
-	exploits = scan_exploits(params[0], params[1].to_int)
+	exploits = get_exploits(params[0], params[1].to_int)
 else
 	lib = use_exploit(params[0])
-	exploits = scan_exploits(params[0])
+	exploits = get_exploits(params[0])
 end if
 if not exploits then exit(get_name() + ": Can't find vulnerabilities.")
 
