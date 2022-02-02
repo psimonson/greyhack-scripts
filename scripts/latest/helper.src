@@ -51,11 +51,20 @@ get_exploits = function(address, port = null)
 			
 			value = line[line.indexOf("<b>")+3:line.indexOf("</b>")]
 			value = value.replace("\n", "")
-			list = list + [value]
+			
+			result = lib.overflow(mem, value)
+			if not result then continue
+			type = typeof(result)
+			
+			values = {}
+			values["value"] = value
+			values["type"] = type
+			list.push(values)
+			//print(str(list) + "\n===========\n")
 		end for
 		map["address"] = mem
 		map["values"] = list
-		mem_map = mem_map + [map]
+		mem_map.push(map)
 	end for
 	if not mem_map then return null
 	return mem_map

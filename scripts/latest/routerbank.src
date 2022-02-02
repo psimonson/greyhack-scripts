@@ -1,9 +1,8 @@
 // routerbank.src - Hack router remotely to retrieve all bank info computers.
-// Import my helper code
 import_code("/home/5n4k3/src/helper.src")
 
-if params.len < 1 or params.len > 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [public ip] (local ip)</b>")
-if not is_valid_ip(params[0]) then exit(get_name() + ": One or more IP address(es) is/are invalid.")
+if params.len != 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [public ip] [local ip]</b>")
+if not is_valid_ip(params[0]) or not is_valid_ip(params[1]) then exit(get_name() + ": One or more IP address(es) is/are invalid.")
 
 mx = get_library("metaxploit.so", true)
 lib = use_exploit(params[0])
@@ -16,10 +15,10 @@ for exploit in exploits
 	address = exploit["address"]
 	print("<color=#00CC00>Address >=====[</color><b>" + address + "</b><color=#00CC00>]=====<</color>")
 	for value in exploit["values"]
-		print("<color=#CC0000>Value >=====[</color><b>" + value + "</b><color=#CC0000>]=====<</color>")
-		result = lib.overflow(address, value)
+		print("<color=#CC0000>Value >=====[</color><b>" + value["value"] + "</b><color=#CC0000>]=====<</color>")
+		result = lib.overflow(address, value["value"])
 		if params.len == 2 and is_valid_ip(params[1]) then
-			result = lib.overflow(address, value, params[1])
+			result = lib.overflow(address, value["value"], params[1])
 		end if
 		if not result then continue
 			

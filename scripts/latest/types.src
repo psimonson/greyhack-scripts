@@ -1,0 +1,28 @@
+// types.src - Get all exploit types and store them.
+// Import my helper code
+import_code("/home/5n4k3/src/helper.src")
+
+if params.len < 1 or params.len > 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [address] [(opt) port]</b>")
+if not is_valid_ip(params[0]) then exit(get_name() + ": IP address is invalid.")
+
+mx = get_library("metaxploit.so", true)
+lib = null
+exploits = null
+if params.len == 2 and params[1].to_int >= 0 and params[1].to_int <= 65535 then
+	lib = use_exploit(params[0], params[1].to_int)
+	exploits = scan_exploits(params[0], params[1].to_int)
+else
+	lib = use_exploit(params[0])
+	exploits = scan_exploits(params[0])
+end if
+if not exploits then exit(get_name() + ": Can't find vulnerabilities.")
+
+// Show all exploits for target library
+for exploit in exploits
+	address = exploit["address"]
+	print("<color=#00CC00>Address >=====[</color><b>" + address + "</b><color=#00CC00>]=====<</color>")
+	for value in exploit["values"]
+		print("<color=#CC0000> [</color><b>" + value["value"] + " : " + value["type"] + "</b><color=#CC0000>]</color>")
+	end for
+end for
+
