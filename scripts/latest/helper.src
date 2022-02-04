@@ -8,7 +8,35 @@ get_path = function()
 	return parent_path(program_path)
 end function
 
-get_file = function(result, user_folder, user_file)
+// Function to find a file
+get_file = function(folder, filename)
+	files = folder.get_files
+	for file in files
+		if file.name == filename then
+			return file
+		end if
+	end for
+	return null
+end function
+
+// Function to find a file
+find_file = function(folder, foldername, filename)
+	if folder.name == foldername then
+		return folder
+	else
+		sub_folders = folder.get_folders
+		for sub_folder in sub_folders
+			if sub_folder.name != foldername then
+				return get_folder(sub_folder, foldername)
+			else
+				return get_file(sub_folder, filename)
+			end if
+		end for
+		return null
+	end if
+end function
+
+search_home = function(result, user_file)
 	if typeof(result) == "file" then
 		while not result.path == "/"
 			result = result.parent
@@ -17,15 +45,15 @@ get_file = function(result, user_folder, user_file)
 		// Get user home directory
 		folders = result.get_folders
 		for folder in folders
-			if folder.name == user_folder then
+			if folder.name == "home" then
 				home_folder = folder
 				break
 			end if
 		end for
-		if not home_folder then exit("Error: Can't access " + user_folder + " dir.")
+		if not home_folder then exit("Error: Can't access home dir.")
 	else if typeof(result) == "computer" then
 		home_folder = result.File("/home")
-		if not home_folder then exit("Error: Can't access " + user_folder + " dir.")
+		if not home_folder then exit("Error: Can't access home dir.")
 	end if
 	
 	bank_info = []
@@ -48,12 +76,12 @@ get_file = function(result, user_folder, user_file)
 				end for
 			end if
 		end for
-		if not file_found then print("Bank file not found.")
+		if not file_found then print("File not found.")
 	end for
 	if folders.len == 0 or bank_info.len == 0 then print("No users found. Program aborted")
 	
 	// Print results
-	print("Printing all saved bank info...\n========================\n")
+	print("Printing all saved info...\n========================")
 	for bank in bank_info
 		print(bank.get_content)
 	end for

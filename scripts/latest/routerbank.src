@@ -23,7 +23,7 @@ for exploit in exploits
 		end if
 		if not result then continue
 		if typeof(result) == "computer" or typeof(result) == "file" then
-			get_file(result, "home", "Bank.txt")
+			search_home(result, "Bank.txt")
 		end if
 	end for
 end for

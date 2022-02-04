@@ -1,0 +1,42 @@
+// findfile.src - Find a file in the computer.
+import_code("/home/5n4k3/src/helper.src")
+
+// Function to find a file
+get_file = function(folder, filename)
+	files = folder.get_files
+	for file in files
+		if file.name == filename then
+			return file
+		end if
+	end for
+	return null
+end function
+
+// Function to find a file
+find_file = function(folder, foldername, filename)
+	if folder.name == foldername then
+		return folder
+	else
+		sub_folders = folder.get_folders
+		for sub_folder in sub_folders
+			if sub_folder.name != foldername then
+				return get_folder(sub_folder, foldername)
+			else
+				return get_file(sub_folder, filename)
+			end if
+		end for
+		return null
+	end if
+end function
+
+if params.len != 2 then exit("<b>Usage: " + get_name() + " [folder] [file]</b>")
+
+computer = get_shell.host_computer
+folder = computer.File("/")
+if not folder then exit(get_name() + ": Can't find root folder.")
+if not folder.has_permission("r") then exit(get_name() + ": Permission denied.")
+file = find_file(folder, "etc", "passwd")
+if not file then exit(get_name() + ": Can't find file.")
+print("File found: " + file.path)
+exit("Program ended")
+

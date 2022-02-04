@@ -782,11 +782,20 @@ get_exploits = function(address, port = null)
 			
 			value = line[line.indexOf("<b>")+3:line.indexOf("</b>")]
 			value = value.replace("\n", "")
-			list = list + [value]
+			
+			result = lib.overflow(mem, value)
+			if not result then continue
+			type = typeof(result)
+			
+			values = {}
+			values["value"] = value
+			values["type"] = type
+			list.push(values)
+			//print(str(list) + "\n===========\n")
 		end for
 		map["address"] = mem
 		map["values"] = list
-		mem_map = mem_map + [map]
+		mem_map.push(map)
 	end for
 	if not mem_map then return null
 	return mem_map
@@ -850,13 +859,63 @@ else
 end if
 
 @@@@@@@@@@
-@@@@@/home/5n4k3/src/routerbank.src
-// routerbank.src - Hack router remotely to retrieve all bank info computers.
-// Import my helper code
+@@@@@/home/5n4k3/src/routervirus.src
+// routervirus.src - Hack router remotely to system and reboot it.
 import_code("/home/5n4k3/src/helper.src")
 
-if params.len < 1 or params.len > 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [public ip] (local ip)</b>")
-if not is_valid_ip(params[0]) then exit(get_name() + ": One or more IP address(es) is/are invalid.")
+if params.len != 1 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [public ip]</b>")
+if not is_valid_ip(params[0]) then exit(get_name() + ": IP address is invalid.")
+
+mx = get_library("metaxploit.so", true)
+crypto = get_library("crypto.so", true)
+lib = use_exploit(params[0])
+
+exploits = get_exploits(params[0])
+if not exploits then exit(get_name() + ": Can't find vulnerabilities.")
+
+// Will show a log after this runs
+for exploit in exploits
+	address = exploit["address"]
+	print("<color=#00CC00>Address >=====[</color><b>" + address + "</b><color=#00CC00>]=====<</color>")
+	for value in exploit["values"]
+		print("<color=#CC0000>Value >=====[</color><b>" + value["value"] + "</b><color=#CC0000>]=====<</color>")
+		result = lib.overflow(address, value["value"])
+		if not result then continue
+			
+		if typeof(result) == "computer" then
+			passwd = result.File("/etc/passwd")
+			if not passwd then exit(get_name() + ": /etc/passwd doesn't exist.")
+			if not passwd.has_permission("r") then exit(get_name() + ": Permission denied.")
+				
+			// Get password
+			root = passwd.get_content.split("\n")[0]
+			if not root then exit(get_name() + ": Could not get root account info.")
+			password = root.split(":")[-1]
+			if not password then exit(get_name() + ": Could not get password.")
+			password = crypto.decipher(password)
+			
+			// Login as root
+			for port in result.get_ports
+				if port.is_closed then
+					print("Port " + port.port_number + " is " + status)
+				else
+					shell = get_shell.connect_service(params[1], port.port_number, root[0], password)
+					if typeof(shell) == "shell" then
+						shell.start_terminal
+					end if
+				end if
+			end for
+		end if
+	end for
+end for
+
+@@@@@@@@@@
+@@@@@/home/5n4k3/src/routerbank.src
+// routerbank.src - Hack router remotely to retrieve all bank info computers.
+import_code("/home/5n4k3/src/helper.src")
+
+if params.len != 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [public ip] [local ip]</b>")
+if not is_valid_ip(params[0]) or not is_valid_ip(params[1]) then exit(get_name() + ": One or more IP address(es) is/are invalid.")
 
 mx = get_library("metaxploit.so", true)
 lib = use_exploit(params[0])
@@ -869,10 +928,10 @@ for exploit in exploits
 	address = exploit["address"]
 	print("<color=#00CC00>Address >=====[</color><b>" + address + "</b><color=#00CC00>]=====<</color>")
 	for value in exploit["values"]
-		print("<color=#CC0000>Value >=====[</color><b>" + value + "</b><color=#CC0000>]=====<</color>")
-		result = lib.overflow(address, value)
+		print("<color=#CC0000>Value >=====[</color><b>" + value["value"] + "</b><color=#CC0000>]=====<</color>")
+		result = lib.overflow(address, value["value"])
 		if params.len == 2 and is_valid_ip(params[1]) then
-			result = lib.overflow(address, value, params[1])
+			result = lib.overflow(address, value["value"], params[1])
 		end if
 		if not result then continue
 			
@@ -895,6 +954,36 @@ for exploit in exploits
 			end for
 			exit
 		end if
+	end for
+end for
+
+@@@@@@@@@@
+@@@@@/home/5n4k3/src/types.src
+// types.src - Get all exploit types and store them.
+// Import my helper code
+import_code("/home/5n4k3/src/helper.src")
+
+if params.len < 1 or params.len > 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [address] [(opt) port]</b>")
+if not is_valid_ip(params[0]) then exit(get_name() + ": IP address is invalid.")
+
+mx = get_library("metaxploit.so", true)
+lib = null
+exploits = null
+if params.len == 2 and params[1].to_int >= 0 and params[1].to_int <= 65535 then
+	lib = use_exploit(params[0], params[1].to_int)
+	exploits = get_exploits(params[0], params[1].to_int)
+else
+	lib = use_exploit(params[0])
+	exploits = get_exploits(params[0])
+end if
+if not exploits then exit(get_name() + ": Can't find vulnerabilities.")
+
+// Show all exploits for target library
+for exploit in exploits
+	address = exploit["address"]
+	print("<color=#00CC00>Address >=====[</color><b>" + address + "</b><color=#00CC00>]=====<</color>")
+	for value in exploit["values"]
+		print("<color=#CC0000> [</color><b>" + value["value"] + " : " + value["type"] + "</b><color=#CC0000>]</color>")
 	end for
 end for
 
