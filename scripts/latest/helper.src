@@ -19,23 +19,18 @@ get_file = function(folder, filename)
 	return null
 end function
 
-// Function to find a file
-find_file = function(folder, foldername, filename)
-	if folder.name == foldername then
-		return folder
-	else
-		sub_folders = folder.get_folders
-		for sub_folder in sub_folders
-			if sub_folder.name != foldername then
-				return get_folder(sub_folder, foldername)
-			else
-				return get_file(sub_folder, filename)
-			end if
-		end for
-		return null
-	end if
+// Function to get folder
+get_folder = function(folder, foldername)
+	folders = folder.get_folders
+	for folder in folders
+		if folder.name == foldername then
+			return folder
+		end if
+	end for
+	return null
 end function
 
+// Function search the home directory
 search_home = function(result, user_file)
 	if typeof(result) == "file" then
 		while not result.path == "/"
@@ -119,7 +114,7 @@ end function
 get_exploits = function(address, port = null)
 	// Build a map of all exploits
 	mem_map = []
-	print("Scanning for exploits: [<color=#00DD00>" + lib.lib_name + ":" + lib.version + "</color>]")
+	print("Scanning for exploits: [<color=#00DD00>" + lib.lib_name + ":" + lib.version + "</color>]\n")
 	memory = mx.scan(lib)
 	for mem in memory
 		map = {}
