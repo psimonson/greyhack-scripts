@@ -743,28 +743,6 @@ get_path = function()
 	return parent_path(program_path)
 end function
 
-// Function to find a file
-get_file = function(folder, filename)
-	files = folder.get_files
-	for file in files
-		if file.name == filename then
-			return file
-		end if
-	end for
-	return null
-end function
-
-// Function to get folder
-get_folder = function(folder, foldername)
-	folders = folder.get_folders
-	for folder in folders
-		if folder.name == foldername then
-			return folder
-		end if
-	end for
-	return null
-end function
-
 // Function search the home directory
 search_home = function(result, user_file)
 	if typeof(result) == "file" then
@@ -783,6 +761,9 @@ search_home = function(result, user_file)
 		if not home_folder then exit("Error: Can't access home dir.")
 	else if typeof(result) == "computer" then
 		home_folder = result.File("/home")
+		if not home_folder then exit("Error: Can't access home dir.")
+	else if typeof(result) == "shell" then
+		home_folder = result.host_computer.File("/home")
 		if not home_folder then exit("Error: Can't access home dir.")
 	end if
 	
@@ -817,17 +798,23 @@ search_home = function(result, user_file)
 	end for
 end function
 
-use_exploit = function(address, port = null)
+use_exploit = function(address, port = null, local = false)
 	mx = get_library("metaxploit.so", true)
 	ns = null
-	if not port then
-		ns = mx.net_use(address)
+	lib = null
+	if not local then
+		ns = null
+		if not port then
+			ns = mx.net_use(address)
+		else
+			ns = mx.net_use(address, port)
+		end if
+		if not ns then exit(get_name() + ": Can't connect to net session.")
+		lib = ns.dump_lib
 	else
-		ns = mx.net_use(address, port)
+		lib = mx.load(address)
 	end if
-	if not ns then exit(get_name() + ": Can't connect to net session.")
-	lib = ns.dump_lib
-	if not lib then exit(get_name() + ": Can't dump library.")
+	if not lib then exit(get_name() + ": Can't get library, not found.")
 	return lib
 end function
 
@@ -846,7 +833,7 @@ get_library = function(library, search)
 end function
 
 // Function scan for all exploits on remote system
-get_exploits = function(address, port = null)
+get_exploits = function(address, port = null, use_types = false)
 	// Build a map of all exploits
 	mem_map = []
 	print("Scanning for exploits: [<color=#00DD00>" + lib.lib_name + ":" + lib.version + "</color>]\n")
@@ -861,7 +848,22 @@ get_exploits = function(address, port = null)
 			value = line[line.indexOf("<b>")+3:line.indexOf("</b>")]
 			value = value.replace("\n", "")
 			
-			list.push(value)
+			if use_types then
+				type = null
+				if address and is_lan_ip(address) then
+					type = lib.overflow(mem, value, address)
+				else
+					type = lib.overflow(mem, value)
+				end if
+				if not type then continue
+				
+				value_map = {}
+				value_map["value"] = value
+				value_map["type"] = typeof(type)
+				list.push(value_map)
+			else
+				list.push(value)
+			end if
 		end for
 		map["address"] = mem
 		map["values"] = list
@@ -954,7 +956,7 @@ for exploit in exploits
 			result = lib.overflow(address, value)
 		end if
 		if not result then continue
-		if typeof(result) == "computer" or typeof(result) == "file" then
+		if typeof(result) == "computer" or typeof(result) == "file" or typeof(result) == "shell" then
 			search_home(result, "Bank.txt")
 		end if
 	end for
@@ -962,7 +964,7 @@ end for
 
 @@@@@@@@@@
 @@@@@/home/5n4k3/src/routervirus.src
-// routerbank.src - Hack router remotely to retrieve all bank info computers.
+// routervirus.src - Hack router remotely to make system not boot.
 import_code("/home/5n4k3/src/helper.src")
 
 if params.len != 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [public ip] [local ip]</b>")
@@ -1000,6 +1002,61 @@ for exploit in exploits
 				print("Done!")
 			end if
 		end if
+	end for
+end for
+
+@@@@@@@@@@
+@@@@@/home/5n4k3/src/routermail.src
+// routermail.src - Hack router remotely to retrieve all mail info computers.
+import_code("/home/5n4k3/src/helper.src")
+
+if params.len != 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [public ip] [local ip]</b>")
+if not is_valid_ip(params[0]) or not is_valid_ip(params[1]) then exit(get_name() + ": One or more IP address(es) is/are invalid.")
+
+mx = get_library("metaxploit.so", true)
+lib = use_exploit(params[0])
+
+exploits = get_exploits(params[0])
+if not exploits then exit(get_name() + ": Can't find vulnerabilities.")
+
+// Will show a log after this runs
+for exploit in exploits
+	address = exploit["address"]
+	print("<color=#00CC00>Address >=====[</color><b>" + address + "</b><color=#00CC00>]=====<</color>")
+	for value in exploit["values"]
+		print("<color=#CC0000>Value >=====[</color><b>" + value + "</b><color=#CC0000>]=====<</color>")
+		if params.len == 2 and is_valid_ip(params[1]) then
+			result = lib.overflow(address, value, params[1])
+		else
+			result = lib.overflow(address, value)
+		end if
+		if not result then continue
+		if typeof(result) == "computer" or typeof(result) == "file" or typeof(result) == "shell" then
+			search_home(result, "Mail.txt")
+		end if
+	end for
+end for
+
+@@@@@@@@@@
+@@@@@/home/5n4k3/src/types.src
+// types.src - Hack router remotely to retrieve all types of overflows.
+import_code("/home/5n4k3/src/helper.src")
+
+if params.len != 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [public ip] [local ip]</b>")
+if not is_valid_ip(params[0]) or not is_valid_ip(params[1]) then exit(get_name() + ": One or more IP address(es) is/are invalid.")
+
+mx = get_library("metaxploit.so", true)
+lib = use_exploit(params[0])
+
+exploits = get_exploits(params[0], null, true)
+if not exploits then exit(get_name() + ": Can't find vulnerabilities.")
+
+// Will show a log after this runs
+for exploit in exploits
+	address = exploit["address"]
+	print("<color=#00CC00>Address >=====[</color><b>" + address + "</b><color=#00CC00>]=====<</color>")
+	for value in exploit["values"]
+		print("<color=#CC0000>Value >=====[</color><b>" + value["value"] + " : " + value["type"] + "</b><color=#CC0000>]=====<</color>")
 	end for
 end for
 

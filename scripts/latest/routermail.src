@@ -1,4 +1,4 @@
-// types.src - Hack router remotely to retrieve all types of overflows.
+// routermail.src - Hack router remotely to retrieve all mail info computers.
 import_code("/home/5n4k3/src/helper.src")
 
 if params.len != 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [public ip] [local ip]</b>")
@@ -7,7 +7,7 @@ if not is_valid_ip(params[0]) or not is_valid_ip(params[1]) then exit(get_name()
 mx = get_library("metaxploit.so", true)
 lib = use_exploit(params[0])
 
-exploits = get_exploits(params[0], null, true)
+exploits = get_exploits(params[0])
 if not exploits then exit(get_name() + ": Can't find vulnerabilities.")
 
 // Will show a log after this runs
@@ -15,7 +15,16 @@ for exploit in exploits
 	address = exploit["address"]
 	print("<color=#00CC00>Address >=====[</color><b>" + address + "</b><color=#00CC00>]=====<</color>")
 	for value in exploit["values"]
-		print("<color=#CC0000>Value >=====[</color><b>" + value["value"] + " : " + value["type"] + "</b><color=#CC0000>]=====<</color>")
+		print("<color=#CC0000>Value >=====[</color><b>" + value + "</b><color=#CC0000>]=====<</color>")
+		if params.len == 2 and is_valid_ip(params[1]) then
+			result = lib.overflow(address, value, params[1])
+		else
+			result = lib.overflow(address, value)
+		end if
+		if not result then continue
+		if typeof(result) == "computer" or typeof(result) == "file" or typeof(result) == "shell" then
+			search_home(result, "Mail.txt")
+		end if
 	end for
 end for
 

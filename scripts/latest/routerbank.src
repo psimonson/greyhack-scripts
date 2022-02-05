@@ -22,7 +22,7 @@ for exploit in exploits
 			result = lib.overflow(address, value)
 		end if
 		if not result then continue
-		if typeof(result) == "computer" or typeof(result) == "file" then
+		if typeof(result) == "computer" or typeof(result) == "file" or typeof(result) == "shell" then
 			search_home(result, "Bank.txt")
 		end if
 	end for

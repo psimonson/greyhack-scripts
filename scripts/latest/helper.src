@@ -8,28 +8,6 @@ get_path = function()
 	return parent_path(program_path)
 end function
 
-// Function to find a file
-get_file = function(folder, filename)
-	files = folder.get_files
-	for file in files
-		if file.name == filename then
-			return file
-		end if
-	end for
-	return null
-end function
-
-// Function to get folder
-get_folder = function(folder, foldername)
-	folders = folder.get_folders
-	for folder in folders
-		if folder.name == foldername then
-			return folder
-		end if
-	end for
-	return null
-end function
-
 // Function search the home directory
 search_home = function(result, user_file)
 	if typeof(result) == "file" then
@@ -48,6 +26,9 @@ search_home = function(result, user_file)
 		if not home_folder then exit("Error: Can't access home dir.")
 	else if typeof(result) == "computer" then
 		home_folder = result.File("/home")
+		if not home_folder then exit("Error: Can't access home dir.")
+	else if typeof(result) == "shell" then
+		home_folder = result.host_computer.File("/home")
 		if not home_folder then exit("Error: Can't access home dir.")
 	end if
 	
@@ -82,17 +63,23 @@ search_home = function(result, user_file)
 	end for
 end function
 
-use_exploit = function(address, port = null)
+use_exploit = function(address, port = null, local = false)
 	mx = get_library("metaxploit.so", true)
 	ns = null
-	if not port then
-		ns = mx.net_use(address)
+	lib = null
+	if not local then
+		ns = null
+		if not port then
+			ns = mx.net_use(address)
+		else
+			ns = mx.net_use(address, port)
+		end if
+		if not ns then exit(get_name() + ": Can't connect to net session.")
+		lib = ns.dump_lib
 	else
-		ns = mx.net_use(address, port)
+		lib = mx.load(address)
 	end if
-	if not ns then exit(get_name() + ": Can't connect to net session.")
-	lib = ns.dump_lib
-	if not lib then exit(get_name() + ": Can't dump library.")
+	if not lib then exit(get_name() + ": Can't get library, not found.")
 	return lib
 end function
 
@@ -111,7 +98,7 @@ get_library = function(library, search)
 end function
 
 // Function scan for all exploits on remote system
-get_exploits = function(address, port = null)
+get_exploits = function(address, port = null, use_types = false)
 	// Build a map of all exploits
 	mem_map = []
 	print("Scanning for exploits: [<color=#00DD00>" + lib.lib_name + ":" + lib.version + "</color>]\n")
@@ -126,7 +113,22 @@ get_exploits = function(address, port = null)
 			value = line[line.indexOf("<b>")+3:line.indexOf("</b>")]
 			value = value.replace("\n", "")
 			
-			list.push(value)
+			if use_types then
+				type = null
+				if address and is_lan_ip(address) then
+					type = lib.overflow(mem, value, address)
+				else
+					type = lib.overflow(mem, value)
+				end if
+				if not type then continue
+				
+				value_map = {}
+				value_map["value"] = value
+				value_map["type"] = typeof(type)
+				list.push(value_map)
+			else
+				list.push(value)
+			end if
 		end for
 		map["address"] = mem
 		map["values"] = list
