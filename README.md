@@ -14,23 +14,29 @@ simple description.
 
 ### Scripts (Latest)
 
+ - helper.src - Some miscellaneous functions for doing stuff in scripting.
+
+ - types.src - Script for listing types of exploits (eg shell, computer, etc).
+
+ - unzip.src - Script for unzipping the file created by zip.src.
+
  - zip.src - Script for storing in-game scripts in /src directory all in one file.
 
  - lhack.src - Script for local hacking, another words put on remote target to use.
 
- - rhack.src - Script for remote hacking, hack using all methods.
-
  - scanner.src - Script for scanning all remote exploits on given server.
 
- - lscanner.src - Script for scanning all exploits on given library.
+ - lscan.src - Script for scanning all exploits on given library.
 
- - getbank.src - Script for trying all methods to get bank information.
+ - routerbank.src - Script for trying all methods to get bank information.
 
- - getmail.src - Script for trying all methods to get mail information.
+ - routermail.src - Script for trying all methods to get mail information.
+
+ - routervirus.src - Script for deleting files on a remote machine.
+
+ - routernuke.src - Script for getting a shell on a remote machine.
 
  - wifihack.src - Script for automated wifi hacking.
-
- - xmap.src - Script for better nmap.
 
  - routernuke.src - Script for trying all exploits against given router.
 
