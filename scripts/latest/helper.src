@@ -1,11 +1,19 @@
 // helper.src - Some miscellaneous functions.
 
+// Function to get program name
 get_name = function()
 	return program_path.split("/")[-1]
 end function
 
+// Function to get current working directory
 get_path = function()
 	return parent_path(program_path)
+end function
+
+// Function to print an error message
+print_error = function(text)
+	if typeof(text) != "string" then exit("<color=#AA0000>print_error: Variable given wasn't a string.</color>")
+	return print("<color=#AA0000>" + get_name() + ": " + text + "</color>")
 end function
 
 // Function search the home directory
@@ -63,8 +71,8 @@ search_home = function(result, user_file)
 	end for
 end function
 
-use_exploit = function(address, port = null, local = false)
-	mx = get_library("metaxploit.so", true)
+use_exploit = function(mx = null, address, port = null, local = false)
+	if not mx then return print_error("Please call get_library first.")
 	ns = null
 	lib = null
 	if not local then
@@ -74,31 +82,32 @@ use_exploit = function(address, port = null, local = false)
 		else
 			ns = mx.net_use(address, port)
 		end if
-		if not ns then exit(get_name() + ": Can't connect to net session.")
+		if not ns then return print_error("Can't connect to net session.")
 		lib = ns.dump_lib
 	else
 		lib = mx.load(address)
 	end if
-	if not lib then exit(get_name() + ": Can't get library, not found.")
+	if not lib then return print_error("Can't get library, not found.")
 	return lib
 end function
 
 get_library = function(library, search)
 	lib_dirs = ["/lib", get_path()]
 	if search then
+		lib = null
 		for lib_dir in lib_dirs
 			lib = include_lib(lib_dir + "/" + library)
-			if not lib then continue
-			return lib
+			if lib then break
 		end for
-		if not lib then exit(get_name() + ": Can't find " + library + " anywhere.")
+		if not lib then return print_error("Can't find " + library + " anywhere.")
+		return lib
 	else
 		return include_lib(library)
 	end if
 end function
 
 // Function scan for all exploits on remote system
-get_exploits = function(address, port = null, use_types = false)
+get_exploits = function(lib, address, port = null, use_types = false)
 	// Build a map of all exploits
 	mem_map = []
 	print("Scanning for exploits: [<color=#00DD00>" + lib.lib_name + ":" + lib.version + "</color>]\n")
