@@ -4,6 +4,7 @@ usage = "<b>Usage: " + program_path.split("/")[-1] + "</b>"
 if params.len != 0 then exit(usage)
 
 crypto = get_library("crypto.so", true)
+if not crypto then exit
 
 // Get computer and delete file.cap if exists
 computer = get_shell.host_computer

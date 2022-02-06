@@ -5,10 +5,9 @@ if params.len < 1 or params.len > 2 or params[0] == "-h" or params[0] == "--help
 if not is_valid_ip(params[0]) or not is_valid_ip(params[1]) then exit(get_name() + ": Not a valid IP address.")
 
 mx = get_library("metaxploit.so", true)
-ns = mx.net_use(params[0])
-if not ns then exit(get_name() + ": Can't connect to net session.")
-lib = ns.dump_lib
-if not lib then exit(get_name() + ": Can't dump library.")
+if not mx then exit
+lib = use_exploit(mx, params[0])
+if not lib then exit
 shell = null
 root_hash = null
 

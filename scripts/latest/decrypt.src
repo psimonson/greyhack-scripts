@@ -1,6 +1,7 @@
 //command: decrypt
 import_code("/home/5n4k3/src/helper.src")
 crypto = get_library("crypto.so", true)
+if not crypto then exit
 
 GetPassword = function(userPass)
 	if userPass.len != 2 then exit(get_name() + ": wrong syntax")

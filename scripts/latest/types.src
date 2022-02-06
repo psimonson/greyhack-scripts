@@ -5,9 +5,11 @@ if params.len != 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>U
 if not is_valid_ip(params[0]) or not is_valid_ip(params[1]) then exit(get_name() + ": One or more IP address(es) is/are invalid.")
 
 mx = get_library("metaxploit.so", true)
-lib = use_exploit(params[0])
+if not mx then exit
+lib = use_exploit(mx, params[0])
+if not lib then exit
 
-exploits = get_exploits(params[0], null, true)
+exploits = get_exploits(lib, params[0], null, true)
 if not exploits then exit(get_name() + ": Can't find vulnerabilities.")
 
 // Will show a log after this runs

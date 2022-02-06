@@ -72,9 +72,14 @@ search_home = function(result, user_file)
 end function
 
 use_exploit = function(mx = null, address, port = null, local = false)
-	if not mx then return print_error("Please call get_library first.")
+	if not mx then
+		print_error("Please call get_library first.")
+		return null
+	end if
+
 	ns = null
 	lib = null
+	
 	if not local then
 		ns = null
 		if not port then
@@ -87,7 +92,11 @@ use_exploit = function(mx = null, address, port = null, local = false)
 	else
 		lib = mx.load(address)
 	end if
-	if not lib then return print_error("Can't get library, not found.")
+	
+	if not lib then
+		print_error("Can't get library, not found.")
+		return null
+	end if
 	return lib
 end function
 
@@ -99,7 +108,10 @@ get_library = function(library, search)
 			lib = include_lib(lib_dir + "/" + library)
 			if lib then break
 		end for
-		if not lib then return print_error("Can't find " + library + " anywhere.")
+		if not lib then
+			print_error("Can't find " + library + " anywhere.")
+			return null
+		end if
 		return lib
 	else
 		return include_lib(library)
