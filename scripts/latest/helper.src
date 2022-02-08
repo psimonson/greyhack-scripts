@@ -74,7 +74,7 @@ search_home = function(result, user_file)
 	end for
 end function
 
-use_exploit = function(mx = null, address, port = null, local = false)
+use_exploit = function(mx = null, address = null, port = null, local = false)
 	if not mx then
 		print_error("Please call get_library first.")
 		return null
@@ -149,6 +149,7 @@ get_exploits = function(lib, address, port = null, use_types = false)
 				value_map = {}
 				value_map["value"] = value
 				value_map["type"] = typeof(type)
+				value_map["result"] = type
 				list.push(value_map)
 			else
 				list.push(value)
