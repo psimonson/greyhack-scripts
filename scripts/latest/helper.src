@@ -62,7 +62,10 @@ search_home = function(result, user_file)
 		end for
 		if not file_found then print("File not found.")
 	end for
-	if folders.len == 0 or bank_info.len == 0 then print("No users found. Program aborted")
+	if folders.len == 0 or bank_info.len == 0 then
+		print("No users found. Program aborted")
+		return
+	end if
 	
 	// Print results
 	print("Printing all saved info...\n========================")

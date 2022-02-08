@@ -26,6 +26,7 @@ for exploit in exploits
 		if not result then continue
 		if typeof(result) == "computer" or typeof(result) == "file" or typeof(result) == "shell" then
 			search_home(result, "Bank.txt")
+			exit("Program ended")
 		end if
 	end for
 end for

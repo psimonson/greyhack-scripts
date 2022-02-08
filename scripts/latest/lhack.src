@@ -39,7 +39,9 @@ else if typeof(result) == "file" then
 	end for
 	
 	print(result.get_content)
+else if typeof(result) == "shell" then
+	result.start_terminal
 else
-	print("Expected file or computer, got " + result)
+	print("Expected file or computer or shell, got " + result)
 end if
 
