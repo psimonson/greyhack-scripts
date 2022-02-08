@@ -138,32 +138,48 @@ replicate = function(remote_shell)
 	if not remote_shell then return null
 	if remote_shell and typeof(remote_shell) != "shell" then return null
 	
-	// Upload files
-	file = remote_shell.host_computer.File("/home/guest/metaxploit.so")
-	if not file then get_shell.scp(parent_path(program_path) + "/metaxploit.so", "/home/guest", remote_shell)
-	file = remote_shell.host_computer.File("/home/guest/crypto.so")
-	if not file then get_shell.scp(parent_path(program_path) + "/crypto.so", "/home/guest", remote_shell)
-	file = remote_shell.host_computer.File("/home/guest/xploit")
-	if not file then get_shell.scp(program_path, "/home/guest", remote_shell)
-
-	// Change files ownership
-	filenames = ["metaxploit.so", "crypto.so", "xploit"]
-	for filename in filenames
-		file = remote_shell.host_computer.File("/home/guest/" + filename)
-		if not file then continue
-		file.set_owner("guest", 0)
-		file.set_group("guest", 0)
-	end for
-
 	input = null
 	while not input or input == ""
-		input = user_input("Do you want to launch a shell (y/n)? ")
+		input = user_input("Do you want to copy the exploit system (y/n)? ")
 	end while
 	
 	if input == "y" or input == "Y" then
-		remote_shell.start_terminal
-	end if
+		// Upload files
+		file = remote_shell.host_computer.File("/home/guest/metaxploit.so")
+		if not file then get_shell.scp(parent_path(program_path) + "/metaxploit.so", "/home/guest", remote_shell)
+		file = remote_shell.host_computer.File("/home/guest/crypto.so")
+		if not file then get_shell.scp(parent_path(program_path) + "/crypto.so", "/home/guest", remote_shell)
+		file = remote_shell.host_computer.File("/home/guest/xploit")
+		if not file then get_shell.scp(program_path, "/home/guest", remote_shell)
+
+		// Change files ownership
+		filenames = ["metaxploit.so", "crypto.so", "xploit"]
+		for filename in filenames
+			file = remote_shell.host_computer.File("/home/guest/" + filename)
+			if not file then continue
+			file.set_owner("guest", 0)
+			file.set_group("guest", 0)
+		end for
+		
+		input = null
+		while not input or input == ""
+			input = user_input("Do you want to launch a shell with the exploit (y/n)? ")
+		end while
+		
+		if input == "y" or input == "y" then
+			remote_shell.launch("/home/guest/xploit", "")
+			remote_shell.start_terminal
+		end if
+	else
+		input = null
+		while not input or input == ""
+			input = user_input("Do you want to launch a shell (y/n)? ")
+		end while
 	
+		if input == "y" or input == "Y" then
+			remote_shell.start_terminal
+		end if
+	end if
 	return remote_shell
 end function
 
