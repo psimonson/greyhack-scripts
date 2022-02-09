@@ -1,0 +1,85 @@
+// routerpayload.src - Get root shell and start it.
+import_code("/home/5n4k3/src/helper.src")
+
+if params.len != 0 then exit("<b>Usage: " + get_name() + "</b>")
+
+mx = get_library("metaxploit.so", true)
+if not mx then exit
+crypto = get_library("crypto.so", true)
+if not crypto then exit
+lib = use_exploit(mx, "/lib/kernel_router.so", null, true)
+if not lib then exit
+
+print("Getting all available exploits on target...")
+exploits = get_exploits(lib, null, null, true)
+if not exploits then exit(get_name() + ": Can't find exploits.")
+
+result = null
+passwd = null
+
+for exploit in exploits
+	memory = exploit["address"]
+	print(">---[<color=#AA0000><b>" + memory + "</b></color>]---<")
+	for value in exploit["values"]
+		if result and passwd then break
+		
+		print(value["value"] + " -> " + value["type"])
+		
+		if not result and value["type"] == "shell" then
+			result = value["result"]
+		else if not passwd and value["type"] == "file" then
+			passwd = value["result"]
+			
+			while passwd.path != "/"
+				passwd = passwd.parent
+			end while
+			
+			for folder in passwd.get_folders
+				if folder.name == "etc" then
+					passwd = folder
+					break
+				end if
+			end for
+			
+			for file in passwd.get_files
+				if file.name == "passwd" then
+					passwd = file
+					break
+				end if
+			end for
+		end if
+	end for
+	if result and passwd then break
+end for
+
+cleanup = function(shell)
+	if not shell then return print_error("Can't clean up files.")
+	filenames = ["metaxploit.so", "crypto.so", "routerpayload"]
+	for filename in filenames
+		file = shell.host_computer.File("/home/guest/" + filename)
+		if not file then continue
+		print("Deleting file: " + file.path)
+		file.delete
+	end for
+end function
+
+quit = function(shell, message)
+	print_error(message)
+	cleanup(shell)
+	exit
+end function
+
+file = passwd
+if not file then quit(result, "Can't find password file.")
+if not file.has_permission("r") then quit(result, "Permission denied.")
+cont = file.get_content.split("\n")
+if not cont then quit(result, "Can't get password file content.")
+root = cont[0].split(":")
+if not root then quit(result, "Getting root hash failed.")
+password = crypto.decipher(root[1])
+if not password then quit(result, "Can't get root password.")
+rootshell = get_shell(root[0], password)
+if not rootshell then quit(result, "Can't get root shell.")
+cleanup(rootshell)
+rootshell.start_terminal
+

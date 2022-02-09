@@ -46,3 +46,9 @@ simple description.
 
  - xploit.src - Automatic hacking/scanning tool.
 
+ - 0day.src - Automatic 0day exploit for router or servers.
+
+ - routerpayload.src - For use with 0day.src (for routers).
+
+ - computerpayload.src - For use with 0day.src (for servers).
+

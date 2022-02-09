@@ -1,0 +1,71 @@
+// 0day.src - Copy payload to remote address.
+import_code("/home/5n4k3/src/helper.src")
+
+if params.len != 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [address] [port]</b>")
+if not is_valid_ip(params[0]) then exit(get_name() + ": Invalid IP address given.")
+
+mx = get_library("metaxploit.so", true)
+if not mx then exit
+lib = use_exploit(mx, params[0], params[1].to_int)
+if not lib then exit
+
+print("Getting all available exploits on target...")
+exploits = null
+if params[1].to_int > 0 and params[1].to_int <= 65535 then
+	exploits = get_exploits(lib, params[0], params[1].to_int, true)
+else
+	exploits = get_exploits(lib, params[0], null, true)
+end if
+if not exploits then exit(get_name() + ": Can't find exploits.")
+
+result = null
+for exploit in exploits
+	memory = exploit["address"]
+	print(">---[<color=#AA0000><b>" + memory + "</b></color>]---<")
+	for value in exploit["values"]
+		print(value["value"] + " -> " + value["type"])
+		if value["type"] == "shell" then
+			result = value["result"]
+			if not result then continue
+			break
+		end if
+	end for
+	if result then break
+end for
+
+get_shell.scp(current_path + "/metaxploit.so", "/home/guest", result)
+get_shell.scp(current_path + "/crypto.so", "/home/guest", result)
+if params[1].to_int <= 0 then
+	get_shell.scp(current_path + "/routerpayload", "/home/guest", result)
+else
+	get_shell.scp(current_path + "/computerpayload", "/home/guest", result)
+end if
+
+file = result.host_computer.File("/home/guest/metaxploit.so")
+if file then
+	file.set_owner("guest", 0)
+	file.set_group("guest", 0)
+end if
+
+file = result.host_computer.File("/home/guest/crypto.so")
+if file then
+	file.set_owner("guest", 0)
+	file.set_group("guest", 0)
+end if
+
+file = result.host_computer.File("/home/guest/routerpayload")
+if params[1].to_int <= 0 then
+	file = result.host_computer.File("/home/guest/routerpayload")
+end if
+if file then
+	file.set_owner("guest", 0)
+	file.set_group("guest", 0)
+end if
+
+if params[1].to_int <= 0 then
+	result.launch("/home/guest/routerpayload", "")
+else
+	result.launch("/home/guest/computerpayload", "")
+end if
+exit("Program ended")
+
