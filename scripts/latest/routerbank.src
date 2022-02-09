@@ -1,6 +1,26 @@
 // routerbank.src - Hack router remotely to retrieve all bank info computers.
 import_code("/home/5n4k3/src/helper.src")
 
+// Function to get home directory file
+get_homedir = function(result)
+	if not result then return null
+	
+	if typeof(result) == "computer" then
+		return result.File("/home")
+	else if typeof(result) == "file" then
+		while result.path != "/"
+			result = result.parent
+		end while
+		
+		for folder in result.get_folders
+			if folder.name == "home" then
+				return folder
+			end if
+		end for
+	end if
+	return null
+end function
+
 if params.len != 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [public ip] [local ip]</b>")
 if not is_valid_ip(params[0]) or not is_valid_ip(params[1]) then exit(get_name() + ": One or more IP address(es) is/are invalid.")
 
@@ -24,8 +44,9 @@ for exploit in exploits
 			result = lib.overflow(address, value)
 		end if
 		if not result then continue
-		if typeof(result) == "computer" or typeof(result) == "file" or typeof(result) == "shell" then
-			search_home(result, "Bank.txt")
+		
+		if typeof(result) == "computer" or typeof(result) == "file" then
+			search_home(get_homedir(result), "Bank.txt")
 			exit("Program ended")
 		end if
 	end for
