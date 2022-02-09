@@ -121,8 +121,43 @@ get_library = function(library, search)
 	end if
 end function
 
+// Function to check for access type
+get_accesstype = function(result)
+	if not result then return null
+	if typeof(result) == "shell" then
+		file = result.host_computer.File("/etc/passwd")
+		if not file then return "unknown"
+		if file.has_permission("r") then
+			otherfile = result.host_computer.File("/root")
+			if not otherfile then return null
+			if file.has_permission("rwx") then
+				return "root"
+			else
+				return "user"
+			end if
+		else
+			return "guest"
+		end if
+	else if typeof(result) == "computer" then
+		file = result.File("/etc/passwd")
+		if not file then return "unknown"
+		if file.has_permission("r") then
+			otherfile = result.File("/root")
+			if not otherfile then return "unknown"
+			if file.has_permission("rwx") then
+				return "root"
+			else
+				return "user"
+			end if
+		else
+			return "guest"
+		end if
+	end if
+	return "unknown"
+end function
+
 // Function scan for all exploits on remote system
-get_exploits = function(lib, address, port = null, use_types = false)
+get_exploits = function(lib, address = null, port = null, use_types = false)
 	// Build a map of all exploits
 	mem_map = []
 	print("Scanning for exploits: [<color=#00DD00>" + lib.lib_name + ":" + lib.version + "</color>]\n")
@@ -139,7 +174,7 @@ get_exploits = function(lib, address, port = null, use_types = false)
 			
 			if use_types then
 				type = null
-				if address and is_lan_ip(address) then
+				if address and is_valid_ip(address) then
 					type = lib.overflow(mem, value, address)
 				else
 					type = lib.overflow(mem, value)
@@ -150,6 +185,7 @@ get_exploits = function(lib, address, port = null, use_types = false)
 				value_map["value"] = value
 				value_map["type"] = typeof(type)
 				value_map["result"] = type
+				value_map["access"] = get_accesstype(type)
 				list.push(value_map)
 			else
 				list.push(value)
