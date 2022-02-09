@@ -271,8 +271,7 @@ do_exploit = function(lib = null, exploits = null)
 				print(result.path + ": Permission denied.")
 				return false
 			end if
-			print(file.path + ":")
-			print(file.get_content)
+			print(file.path + ":\n" + file.get_content + "\n")
 			return true
 		end if
 	end function
@@ -292,8 +291,10 @@ do_exploit = function(lib = null, exploits = null)
 		return shell
 	end function
 	
-	if not lib then return null
-	if not exploits then return null
+	if not lib or not exploits then
+		print("Please run remote scanner first.")
+		return null
+	end if
 
 	// Globals
 	shell = null
@@ -304,19 +305,20 @@ do_exploit = function(lib = null, exploits = null)
 	for exploit in exploits
 		address = exploit["address"]
 		for value in exploit["values"]
-			result = lib.overflow(address, value["value"])
-			if not result then continue
-			if not shell and typeof(result) == "shell" then
-				shell = result
-			else if not computer and typeof(result) == "computer" then
-				computer = result
-			else if not userfile and typeof(result) == "file" then
-				userfile = result
+			if shell and computer or userfile then do_result(shell, computer, userfile)
+
+			if not shell and value["type"] == "shell" then
+				shell = value["result"]
+				if shell and computer or userfile then do_result(shell, computer, userfile)
+			else if not computer and value["type"] == "computer" then
+				computer = value["result"]
+			else if not userfile and value["type"] == "file" then
+				userfile = value["result"]
 			end if
 		end for
 	end for
 
-	return do_result(shell, computer, userfile)
+	return shell
 end function
 
 start_message = "******************************************************\n" + "*      ___    ___                                    *\n" + "*       \ \  / /   ______  ___          _  ___       *\n" + "*        \ \/ /   /  ___ \ | |    ___  |_| | |_      *\n" + "*        / /\ \   | |___|| | |_  | | |  _  |  _|     *\n" + "*       / /  \ \  | _____/ |___| | | | | | | |       *\n" + "*      ---------- | |             ---   -   -        *\n" + "*                  -                                 *\n" + "******************************************************\n"
@@ -409,7 +411,7 @@ while true
 					shell.launch("/home/guest/xploit", "")
 					shell.start_terminal
 				else
-					print("You haven't obtained a shell yet, please run option 3 first.")
+					print("You haven't obtained a shell yet, please run exploit first.")
 				end if
 			else if option == 4 then
 				// Get mail files

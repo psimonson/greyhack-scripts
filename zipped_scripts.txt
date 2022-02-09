@@ -139,32 +139,48 @@ replicate = function(remote_shell)
 	if not remote_shell then return null
 	if remote_shell and typeof(remote_shell) != "shell" then return null
 	
-	// Upload files
-	file = remote_shell.host_computer.File("/home/guest/metaxploit.so")
-	if not file then get_shell.scp(parent_path(program_path) + "/metaxploit.so", "/home/guest", remote_shell)
-	file = remote_shell.host_computer.File("/home/guest/crypto.so")
-	if not file then get_shell.scp(parent_path(program_path) + "/crypto.so", "/home/guest", remote_shell)
-	file = remote_shell.host_computer.File("/home/guest/xploit")
-	if not file then get_shell.scp(program_path, "/home/guest", remote_shell)
-
-	// Change files ownership
-	filenames = ["metaxploit.so", "crypto.so", "xploit"]
-	for filename in filenames
-		file = remote_shell.host_computer.File("/home/guest/" + filename)
-		if not file then continue
-		file.set_owner("guest", 0)
-		file.set_group("guest", 0)
-	end for
-
 	input = null
 	while not input or input == ""
-		input = user_input("Do you want to launch a shell (y/n)? ")
+		input = user_input("Do you want to copy the exploit system (y/n)? ")
 	end while
 	
 	if input == "y" or input == "Y" then
-		remote_shell.start_terminal
-	end if
+		// Upload files
+		file = remote_shell.host_computer.File("/home/guest/metaxploit.so")
+		if not file then get_shell.scp(parent_path(program_path) + "/metaxploit.so", "/home/guest", remote_shell)
+		file = remote_shell.host_computer.File("/home/guest/crypto.so")
+		if not file then get_shell.scp(parent_path(program_path) + "/crypto.so", "/home/guest", remote_shell)
+		file = remote_shell.host_computer.File("/home/guest/xploit")
+		if not file then get_shell.scp(program_path, "/home/guest", remote_shell)
+
+		// Change files ownership
+		filenames = ["metaxploit.so", "crypto.so", "xploit"]
+		for filename in filenames
+			file = remote_shell.host_computer.File("/home/guest/" + filename)
+			if not file then continue
+			file.set_owner("guest", 0)
+			file.set_group("guest", 0)
+		end for
+		
+		input = null
+		while not input or input == ""
+			input = user_input("Do you want to launch a shell with the exploit (y/n)? ")
+		end while
+		
+		if input == "y" or input == "y" then
+			remote_shell.launch("/home/guest/xploit", "")
+			remote_shell.start_terminal
+		end if
+	else
+		input = null
+		while not input or input == ""
+			input = user_input("Do you want to launch a shell (y/n)? ")
+		end while
 	
+		if input == "y" or input == "Y" then
+			remote_shell.start_terminal
+		end if
+	end if
 	return remote_shell
 end function
 
@@ -256,8 +272,7 @@ do_exploit = function(lib = null, exploits = null)
 				print(result.path + ": Permission denied.")
 				return false
 			end if
-			print(file.path + ":")
-			print(file.get_content)
+			print(file.path + ":\n" + file.get_content + "\n")
 			return true
 		end if
 	end function
@@ -277,8 +292,10 @@ do_exploit = function(lib = null, exploits = null)
 		return shell
 	end function
 	
-	if not lib then return null
-	if not exploits then return null
+	if not lib or not exploits then
+		print("Please run remote scanner first.")
+		return null
+	end if
 
 	// Globals
 	shell = null
@@ -289,19 +306,20 @@ do_exploit = function(lib = null, exploits = null)
 	for exploit in exploits
 		address = exploit["address"]
 		for value in exploit["values"]
-			result = lib.overflow(address, value["value"])
-			if not result then continue
-			if not shell and typeof(result) == "shell" then
-				shell = result
-			else if not computer and typeof(result) == "computer" then
-				computer = result
-			else if not userfile and typeof(result) == "file" then
-				userfile = result
+			if shell and computer or userfile then do_result(shell, computer, userfile)
+
+			if not shell and value["type"] == "shell" then
+				shell = value["result"]
+				if shell and computer or userfile then do_result(shell, computer, userfile)
+			else if not computer and value["type"] == "computer" then
+				computer = value["result"]
+			else if not userfile and value["type"] == "file" then
+				userfile = value["result"]
 			end if
 		end for
 	end for
 
-	return do_result(shell, computer, userfile)
+	return shell
 end function
 
 start_message = "******************************************************\n" + "*      ___    ___                                    *\n" + "*       \ \  / /   ______  ___          _  ___       *\n" + "*        \ \/ /   /  ___ \ | |    ___  |_| | |_      *\n" + "*        / /\ \   | |___|| | |_  | | |  _  |  _|     *\n" + "*       / /  \ \  | _____/ |___| | | | | | | |       *\n" + "*      ---------- | |             ---   -   -        *\n" + "*                  -                                 *\n" + "******************************************************\n"
@@ -394,7 +412,7 @@ while true
 					shell.launch("/home/guest/xploit", "")
 					shell.start_terminal
 				else
-					print("You haven't obtained a shell yet, please run option 3 first.")
+					print("You haven't obtained a shell yet, please run exploit first.")
 				end if
 			else if option == 4 then
 				// Get mail files
