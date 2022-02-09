@@ -1,4 +1,4 @@
-// computerpayload.src - Get root shell and start it.
+// routerpayload.src - Get root shell and start it.
 import_code("/home/5n4k3/src/helper.src")
 
 if params.len != 0 then exit("<b>Usage: " + get_name() + "</b>")
@@ -7,7 +7,7 @@ mx = get_library("metaxploit.so", true)
 if not mx then exit
 crypto = get_library("crypto.so", true)
 if not crypto then exit
-lib = use_exploit(mx, "/lib/kernel_module.so", null, true)
+lib = use_exploit(mx, "/lib/kernel_router.so", null, true)
 if not lib then exit
 
 print("Getting all available exploits on target...")
@@ -54,7 +54,7 @@ end for
 
 cleanup = function(shell)
 	if not shell then return print_error("Can't clean up files.")
-	filenames = ["metaxploit.so", "crypto.so", "computerpayload"]
+	filenames = ["metaxploit.so", "crypto.so", "routerpayload"]
 	for filename in filenames
 		file = shell.host_computer.File("/home/guest/" + filename)
 		if not file then continue
@@ -68,6 +68,11 @@ quit = function(shell, message)
 	cleanup(shell)
 	exit
 end function
+
+if not result then
+	print_error("Can't get shell.")
+	exit("Program ended")
+end if
 
 file = passwd
 if not file then quit(result, "Can't find password file.")

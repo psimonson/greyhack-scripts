@@ -6,7 +6,12 @@ if not is_valid_ip(params[0]) then exit(get_name() + ": Invalid IP address given
 
 mx = get_library("metaxploit.so", true)
 if not mx then exit
-lib = use_exploit(mx, params[0], params[1].to_int)
+lib = null
+if params[1].to_int > 0 and params[1].to_int <= 65535 then
+	lib = use_exploit(mx, params[0], params[1].to_int)
+else
+	lib = use_exploit(mx, params[0])
+end if
 if not lib then exit
 
 print("Getting all available exploits on target...")
@@ -33,9 +38,14 @@ for exploit in exploits
 	if result then break
 end for
 
+if not result then
+	print_error("Can't find shell.")
+	exit("Program ended")
+end if
+
 get_shell.scp(current_path + "/metaxploit.so", "/home/guest", result)
 get_shell.scp(current_path + "/crypto.so", "/home/guest", result)
-if params[1].to_int <= 0 then
+if params[1].to_int == 0 then
 	get_shell.scp(current_path + "/routerpayload", "/home/guest", result)
 else
 	get_shell.scp(current_path + "/computerpayload", "/home/guest", result)
@@ -43,26 +53,35 @@ end if
 
 file = result.host_computer.File("/home/guest/metaxploit.so")
 if file then
+	print("Setting owner and group for " + file.path)
 	file.set_owner("guest", 0)
 	file.set_group("guest", 0)
 end if
 
 file = result.host_computer.File("/home/guest/crypto.so")
 if file then
+	print("Setting owner and group for " + file.path)
 	file.set_owner("guest", 0)
 	file.set_group("guest", 0)
 end if
 
-file = result.host_computer.File("/home/guest/routerpayload")
-if params[1].to_int <= 0 then
+file = null
+if params[1].to_int == 0 then
 	file = result.host_computer.File("/home/guest/routerpayload")
-end if
-if file then
-	file.set_owner("guest", 0)
-	file.set_group("guest", 0)
+else
+	file = result.host_computer.File("/home/guest/computerpayload")
 end if
 
-if params[1].to_int <= 0 then
+if not file then
+	print_error("Can't copy " + file.name)
+	exit("Program ended")
+end if
+
+file.set_owner("guest", 0)
+file.set_group("guest", 0)
+
+print("Launching payload...")
+if params[1].to_int == 0 then
 	result.launch("/home/guest/routerpayload", "")
 else
 	result.launch("/home/guest/computerpayload", "")

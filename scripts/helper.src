@@ -157,7 +157,7 @@ get_accesstype = function(result)
 end function
 
 // Function scan for all exploits on remote system
-get_exploits = function(lib, address = null, port = null, use_types = false)
+get_exploits = function(lib, address = null, port = null, use_types = false, password = null)
 	// Build a map of all exploits
 	mem_map = []
 	print("Scanning for exploits: [<color=#00DD00>" + lib.lib_name + ":" + lib.version + "</color>]\n")
@@ -177,7 +177,11 @@ get_exploits = function(lib, address = null, port = null, use_types = false)
 				if address and is_valid_ip(address) then
 					type = lib.overflow(mem, value, address)
 				else
-					type = lib.overflow(mem, value)
+					if password then
+						type = lib.overflow(mem, value, password)
+					else
+						type = lib.overflow(mem, value)
+					end if
 				end if
 				if not type then continue
 				
