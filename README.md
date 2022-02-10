@@ -46,6 +46,8 @@ simple description.
 
  - xploit.src - Automatic hacking/scanning tool.
 
+ - probe.src - Better network probing tool (a bit better than nmap).
+
  - 0day.src - Automatic 0day exploit for router or servers.
 
  - routerpayload.src - For use with 0day.src (for routers).
