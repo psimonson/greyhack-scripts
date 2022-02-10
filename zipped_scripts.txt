@@ -1378,47 +1378,53 @@ mx = get_library("metaxploit.so", true)
 if not mx then exit
 crypto = get_library("crypto.so", true)
 if not crypto then exit
-lib = use_exploit(mx, "/lib/kernel_module.so", null, true)
-if not lib then exit
-
-print("Getting all available exploits on target...")
-exploits = get_exploits(lib, null, null, true)
-if not exploits then exit(get_name() + ": Can't find exploits.")
 
 result = null
 passwd = null
 
-for exploit in exploits
-	memory = exploit["address"]
-	print(">---[<color=#AA0000><b>" + memory + "</b></color>]---<")
-	for value in exploit["values"]
+// Run through all modules to find a shell
+modules = ["init.so", "kernel_module.so", "net.so"]
+for module in modules
+	lib = use_exploit(mx, "/lib/" + module, null, true)
+	if not lib then exit
+
+	print("Getting all available exploits on target...")
+	exploits = get_exploits(lib, null, null, true)
+	if not exploits then exit(get_name() + ": Can't find exploits.")
+
+	for exploit in exploits
+		memory = exploit["address"]
+		print(">---[<color=#AA0000><b>" + memory + "</b></color>]---<")
+		for value in exploit["values"]
+			if result and passwd then break
+		
+			print(value["value"] + " -> " + value["type"])
+		
+			if not result and value["type"] == "shell" then
+				result = value["result"]
+			else if not passwd and value["type"] == "file" then
+				passwd = value["result"]
+			
+				while passwd.path != "/"
+					passwd = passwd.parent
+				end while
+			
+				for folder in passwd.get_folders
+					if folder.name == "etc" then
+						passwd = folder
+						break
+					end if
+				end for
+			
+				for file in passwd.get_files
+					if file.name == "passwd" then
+						passwd = file
+						break
+					end if
+				end for
+			end if
+		end for
 		if result and passwd then break
-		
-		print(value["value"] + " -> " + value["type"])
-		
-		if not result and value["type"] == "shell" then
-			result = value["result"]
-		else if not passwd and value["type"] == "file" then
-			passwd = value["result"]
-			
-			while passwd.path != "/"
-				passwd = passwd.parent
-			end while
-			
-			for folder in passwd.get_folders
-				if folder.name == "etc" then
-					passwd = folder
-					break
-				end if
-			end for
-			
-			for file in passwd.get_files
-				if file.name == "passwd" then
-					passwd = file
-					break
-				end if
-			end for
-		end if
 	end for
 	if result and passwd then break
 end for
