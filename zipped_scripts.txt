@@ -1611,13 +1611,15 @@ print("Interesting ports on " + address + "\n")
 
 if ports.len == 0 then exit(get_name() + ": Scan finished. No open ports.")
 
-print("ROUTER [" + address + "]\n" + "-" * (address.len + 9))
-get_netmap(ports)
 for ip in router.devices_lan_ip
 	ports = router.device_ports(ip)
 	if not ports then continue
 	if typeof(ports) == "string" then continue
-	print("ROUTER [" + ip + "]\n" + "-" * (ip.len + 9))
+	if ip == router.local_ip then
+		print("ROUTER [" + address + "]\n" + "-" * (address.len + 9))
+	else
+		print("ROUTER [" + ip + "]\n" + "-" * (ip.len + 9))
+	end if
 	get_netmap(ports)
 end for
 exit("Program ended")
