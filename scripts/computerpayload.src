@@ -60,7 +60,7 @@ end for
 
 import_code("/home/5n4k3/src/shellhelp.src")
 
-filenames = ["metaxploit.so", "crypto.so", "computerpayload"]
+filenames = ["metaxploit.so", "crypto.so", "computerpayload", "routerpayload", "0day"]
 
 if not result then
 	print_error("Can't get shell.")

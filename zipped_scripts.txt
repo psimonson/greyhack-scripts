@@ -1280,9 +1280,9 @@ end for
 // routerpayload.src - Get root shell and start it.
 import_code("/home/5n4k3/src/helper.src")
 
-if params.len != 2 then exit("<b>Usage: " + get_name() + " [address] [port]</b>")
+if params.len % 2 != 0 then exit("<b>Usage: " + get_name() + " [address port] [...]</b>")
 if not is_valid_ip(params[0]) then exit(get_name() + ": Invalid IP given.")
-if params[1].to_int < 0 and params[1].to_int > 65535 then exit(get_name() + ": Invalid port given.")
+if params.len % 2 != 0 and params[1].to_int < 0 or params[1].to_int > 65535 then exit(get_name() + ": Invalid port given.")
 
 mx = get_library("metaxploit.so", true)
 if not mx then exit
@@ -1341,9 +1341,8 @@ if not result then
 end if
 
 filenames = ["metaxploit.so", "crypto.so", "routerpayload", "computerpayload", "0day"]
-
 replicate(result, filenames)
-result.launch("/home/guest/0day", params[0] + " " + params[1])
+result.launch("/home/guest/0day", params.join(" "))
 cleanup(result, filenames)
 
 @@@@@@@@@@
@@ -1410,7 +1409,7 @@ end for
 
 import_code("/home/5n4k3/src/shellhelp.src")
 
-filenames = ["metaxploit.so", "crypto.so", "computerpayload"]
+filenames = ["metaxploit.so", "crypto.so", "computerpayload", "routerpayload", "0day"]
 
 if not result then
 	print_error("Can't get shell.")
@@ -1436,8 +1435,9 @@ rootshell.start_terminal
 // 0day.src - Copy payload to remote address.
 import_code("/home/5n4k3/src/helper.src")
 
-if params.len != 2 and params.len != 4 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [address] [port] [(opt) [address] [ip]]</b>")
+if params.len % 2 != 0 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [address port] [...]</b>")
 if not is_valid_ip(params[0]) then exit(get_name() + ": Invalid IP address given.")
+if params.len % 2 != 0 and params[2].to_int < 0 or params[1].to_int > 65535 then exit(get_name() + ": Invalid port given.")
 
 mx = get_library("metaxploit.so", true)
 if not mx then exit
@@ -1479,12 +1479,19 @@ end if
 
 import_code("/home/5n4k3/src/shellhelp.src")
 
-filenames = ["metaxploit.so", "crypto.so", "routerpayload", "computerpayload", "0day"]
-
 if params[1].to_int == 0 then
+	filenames = ["metaxploit.so", "crypto.so", "routerpayload", "computerpayload", "0day"]
+	new_params = []
+	i = 2
+	
+	while(i < params.len)
+		new_params.push(params[i] + " " + params[i+1])
+		i = i + 2
+	end while
+	
 	replicate(result, filenames)
 	print("\nLaunching router payload on " + result.host_computer.local_ip + "...")
-	result.launch("/home/guest/routerpayload", params[2] + " " + params[3])
+	result.launch("/home/guest/routerpayload", new_params.join(" "))
 else
 	print("\nLaunching computer payload on " + result.host_computer.local_ip + "...")
 	result.launch("/home/guest/computerpayload", "")
