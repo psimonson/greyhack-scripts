@@ -1280,17 +1280,19 @@ end for
 // routerpayload.src - Get root shell and start it.
 import_code("/home/5n4k3/src/helper.src")
 
-if params.len != 0 then exit("<b>Usage: " + get_name() + "</b>")
+if params.len != 2 then exit("<b>Usage: " + get_name() + " [address] [port]</b>")
+if not is_valid_ip(params[0]) then exit(get_name() + ": Invalid IP given.")
+if params[1].to_int < 0 and params[1].to_int > 65535 then exit(get_name() + ": Invalid port given.")
 
 mx = get_library("metaxploit.so", true)
 if not mx then exit
 crypto = get_library("crypto.so", true)
 if not crypto then exit
-lib = use_exploit(mx, "/lib/kernel_router.so", null, true)
+lib = use_exploit(mx, params[0], params[1].to_int)
 if not lib then exit
 
-print("Getting all available exploits on target...")
-exploits = get_exploits(lib, null, null, true)
+print("Trying to exploit target [<color=#BB0000><b>" + params[0] + ":" + params[1] + "</b></color>]...")
+exploits = get_exploits(lib, params[0], params[1].to_int, true)
 if not exploits then exit(get_name() + ": Can't find exploits.")
 
 result = null
@@ -1331,41 +1333,18 @@ for exploit in exploits
 	if result and passwd then break
 end for
 
-cleanup = function(shell)
-	if not shell then return print_error("Can't clean up files.")
-	filenames = ["metaxploit.so", "crypto.so", "routerpayload"]
-	for filename in filenames
-		file = shell.host_computer.File("/home/guest/" + filename)
-		if not file then continue
-		print("Deleting file: " + file.path)
-		file.delete
-	end for
-end function
-
-quit = function(shell, message)
-	print_error(message)
-	cleanup(shell)
-	exit
-end function
+import_code("/home/5n4k3/src/shellhelp.src")
 
 if not result then
 	print_error("Can't get shell.")
 	exit("Program ended")
 end if
 
-file = passwd
-if not file then quit(result, "Can't find password file.")
-if not file.has_permission("r") then quit(result, "Permission denied.")
-cont = file.get_content.split("\n")
-if not cont then quit(result, "Can't get password file content.")
-root = cont[0].split(":")
-if not root then quit(result, "Getting root hash failed.")
-password = crypto.decipher(root[1])
-if not password then quit(result, "Can't get root password.")
-rootshell = get_shell(root[0], password)
-if not rootshell then quit(result, "Can't get root shell.")
-cleanup(rootshell)
-rootshell.start_terminal
+filenames = ["metaxploit.so", "crypto.so", "routerpayload", "computerpayload", "0day"]
+
+replicate(result, filenames)
+result.launch("/home/guest/0day", params[0] + " " + params[1])
+cleanup(result, filenames)
 
 @@@@@@@@@@
 @@@@@/home/5n4k3/src/computerpayload.src
@@ -1429,22 +1408,9 @@ for module in modules
 	if result and passwd then break
 end for
 
-cleanup = function(shell)
-	if not shell then return print_error("Can't clean up files.")
-	filenames = ["metaxploit.so", "crypto.so", "computerpayload"]
-	for filename in filenames
-		file = shell.host_computer.File("/home/guest/" + filename)
-		if not file then continue
-		print("Deleting file: " + file.path)
-		file.delete
-	end for
-end function
+import_code("/home/5n4k3/src/shellhelp.src")
 
-quit = function(shell, message)
-	print_error(message)
-	cleanup(shell)
-	exit
-end function
+filenames = ["metaxploit.so", "crypto.so", "computerpayload"]
 
 if not result then
 	print_error("Can't get shell.")
@@ -1462,7 +1428,7 @@ password = crypto.decipher(root[1])
 if not password then quit(result, "Can't get root password.")
 rootshell = get_shell(root[0], password)
 if not rootshell then quit(result, "Can't get root shell.")
-cleanup(rootshell)
+cleanup(rootshell, filenames)
 rootshell.start_terminal
 
 @@@@@@@@@@
@@ -1470,7 +1436,7 @@ rootshell.start_terminal
 // 0day.src - Copy payload to remote address.
 import_code("/home/5n4k3/src/helper.src")
 
-if params.len != 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [address] [port]</b>")
+if params.len != 2 and params.len != 4 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [address] [port] [(opt) [address] [ip]]</b>")
 if not is_valid_ip(params[0]) then exit(get_name() + ": Invalid IP address given.")
 
 mx = get_library("metaxploit.so", true)
@@ -1483,12 +1449,11 @@ else
 end if
 if not lib then exit
 
-print("Getting all available exploits on target...")
 exploits = null
 if params[1].to_int > 0 and params[1].to_int <= 65535 then
 	exploits = get_exploits(lib, params[0], params[1].to_int, true)
 else
-	exploits = get_exploits(lib, params[0], null, true)
+	exploits = get_exploits(lib, null, null, true)
 end if
 if not exploits then exit(get_name() + ": Can't find exploits.")
 
@@ -1512,47 +1477,16 @@ if not result then
 	exit("Program ended")
 end if
 
-get_shell.scp(current_path + "/metaxploit.so", "/home/guest", result)
-get_shell.scp(current_path + "/crypto.so", "/home/guest", result)
+import_code("/home/5n4k3/src/shellhelp.src")
+
+filenames = ["metaxploit.so", "crypto.so", "routerpayload", "computerpayload", "0day"]
+
 if params[1].to_int == 0 then
-	get_shell.scp(current_path + "/routerpayload", "/home/guest", result)
+	replicate(result, filenames)
+	print("\nLaunching router payload on " + result.host_computer.local_ip + "...")
+	result.launch("/home/guest/routerpayload", params[2] + " " + params[3])
 else
-	get_shell.scp(current_path + "/computerpayload", "/home/guest", result)
-end if
-
-file = result.host_computer.File("/home/guest/metaxploit.so")
-if file then
-	print("Setting owner and group for " + file.path)
-	file.set_owner("guest", 0)
-	file.set_group("guest", 0)
-end if
-
-file = result.host_computer.File("/home/guest/crypto.so")
-if file then
-	print("Setting owner and group for " + file.path)
-	file.set_owner("guest", 0)
-	file.set_group("guest", 0)
-end if
-
-file = null
-if params[1].to_int == 0 then
-	file = result.host_computer.File("/home/guest/routerpayload")
-else
-	file = result.host_computer.File("/home/guest/computerpayload")
-end if
-
-if not file then
-	print_error("Can't copy " + file.name)
-	exit("Program ended")
-end if
-
-file.set_owner("guest", 0)
-file.set_group("guest", 0)
-
-print("Launching payload...")
-if params[1].to_int == 0 then
-	result.launch("/home/guest/routerpayload", "")
-else
+	print("\nLaunching computer payload on " + result.host_computer.local_ip + "...")
 	result.launch("/home/guest/computerpayload", "")
 end if
 exit("Program ended")
@@ -1623,6 +1557,49 @@ for ip in router.devices_lan_ip
 	get_netmap(ports)
 end for
 exit("Program ended")
+
+@@@@@@@@@@
+@@@@@/home/5n4k3/src/shellhelp.src
+// shellhelp.src - Some functions for when you obtain a shell.
+
+cleanup = function(shell = null, filenames = null)
+	if not shell then return print_error("Can't clean up files.")
+	if not filenames or typeof(filenames) != "list" then return print_error("No filenames or not a list.")
+
+	for filename in filenames
+		file = shell.host_computer.File("/home/guest/" + filename)
+		if not file then continue
+		print("Deleting file: " + file.path)
+		file.delete
+	end for
+end function
+
+// Function to replicate itself into routers and computers
+replicate = function(remote_shell = null, filenames = null)
+	if not remote_shell then return print_error("No remote shell.")
+	if not filenames or typeof(filenames) != "list" then return print_error("No filenames or not a list.")
+	if typeof(remote_shell) != "shell" then return print_error("Shell argument not correct.")
+
+	for filename in filenames
+		get_shell.scp(parent_path(program_path) + "/" + filename, "/home/guest", remote_shell)
+		file = remote_shell.host_computer.File("/home/guest/" + filename)
+		if not file then
+			print("Can't find file: /home/guest/" + filename)
+			continue
+		end if
+		print("Setting owner and group for " + file.path + ".")
+		file.set_owner("guest", 0)
+		file.set_group("guest", 0)
+	end for
+end function
+
+// Function to quit and cleanup shell
+quit = function(shell = null, message = null)
+	if not shell or not message then return print_error("No shell or message given.")
+	print_error(message)
+	cleanup(shell)
+	exit
+end function
 
 @@@@@@@@@@
 

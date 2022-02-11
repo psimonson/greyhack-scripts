@@ -1,0 +1,41 @@
+// shellhelp.src - Some functions for when you obtain a shell.
+
+cleanup = function(shell = null, filenames = null)
+	if not shell then return print_error("Can't clean up files.")
+	if not filenames or typeof(filenames) != "list" then return print_error("No filenames or not a list.")
+
+	for filename in filenames
+		file = shell.host_computer.File("/home/guest/" + filename)
+		if not file then continue
+		print("Deleting file: " + file.path)
+		file.delete
+	end for
+end function
+
+// Function to replicate itself into routers and computers
+replicate = function(remote_shell = null, filenames = null)
+	if not remote_shell then return print_error("No remote shell.")
+	if not filenames or typeof(filenames) != "list" then return print_error("No filenames or not a list.")
+	if typeof(remote_shell) != "shell" then return print_error("Shell argument not correct.")
+
+	for filename in filenames
+		get_shell.scp(parent_path(program_path) + "/" + filename, "/home/guest", remote_shell)
+		file = remote_shell.host_computer.File("/home/guest/" + filename)
+		if not file then
+			print("Can't find file: /home/guest/" + filename)
+			continue
+		end if
+		print("Setting owner and group for " + file.path + ".")
+		file.set_owner("guest", 0)
+		file.set_group("guest", 0)
+	end for
+end function
+
+// Function to quit and cleanup shell
+quit = function(shell = null, message = null)
+	if not shell or not message then return print_error("No shell or message given.")
+	print_error(message)
+	cleanup(shell)
+	exit
+end function
+

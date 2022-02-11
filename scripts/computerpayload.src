@@ -58,22 +58,9 @@ for module in modules
 	if result and passwd then break
 end for
 
-cleanup = function(shell)
-	if not shell then return print_error("Can't clean up files.")
-	filenames = ["metaxploit.so", "crypto.so", "computerpayload"]
-	for filename in filenames
-		file = shell.host_computer.File("/home/guest/" + filename)
-		if not file then continue
-		print("Deleting file: " + file.path)
-		file.delete
-	end for
-end function
+import_code("/home/5n4k3/src/shellhelp.src")
 
-quit = function(shell, message)
-	print_error(message)
-	cleanup(shell)
-	exit
-end function
+filenames = ["metaxploit.so", "crypto.so", "computerpayload"]
 
 if not result then
 	print_error("Can't get shell.")
@@ -91,6 +78,6 @@ password = crypto.decipher(root[1])
 if not password then quit(result, "Can't get root password.")
 rootshell = get_shell(root[0], password)
 if not rootshell then quit(result, "Can't get root shell.")
-cleanup(rootshell)
+cleanup(rootshell, filenames)
 rootshell.start_terminal
 
