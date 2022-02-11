@@ -15,11 +15,11 @@ passwd = null
 modules = ["init.so", "kernel_module.so", "net.so"]
 for module in modules
 	lib = use_exploit(mx, "/lib/" + module, null, true)
-	if not lib then exit
+	if not lib then continue
 
 	print("Getting all available exploits on target...")
 	exploits = get_exploits(lib, null, null, true)
-	if not exploits then exit(get_name() + ": Can't find exploits.")
+	if not exploits then continue
 
 	for exploit in exploits
 		memory = exploit["address"]
@@ -64,6 +64,7 @@ filenames = ["metaxploit.so", "crypto.so", "computerpayload", "routerpayload", "
 
 if not result then
 	print_error("Can't get shell.")
+	cleanup(get_shell, filenames)
 	exit
 end if
 
