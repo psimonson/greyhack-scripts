@@ -52,13 +52,37 @@ if ports.len == 0 then exit(get_name() + ": Scan finished. No open ports.")
 
 for ip in router.devices_lan_ip
 	ports = router.device_ports(ip)
+	if router.local_ip != ip then
+		new_router = get_router(ip)
+		if new_router then
+			hidden_ports = new_router.used_ports
+			if hidden_ports and typeof(hidden_ports) != "string" then
+				ports = ports + hidden_ports
+			end if
+		end if
+		new_switch = get_switch(ip)
+		if new_switch then
+			hidden_ports = new_switch.used_ports
+			if hidden_ports and typeof(hidden_ports) != "string" then
+				ports = ports + hidden_ports
+			end if
+		end if
+		type = null
+		if new_router != null then
+			type = "ROUTER"
+		end if
+		if new_switch != null then
+			type = "SWITCH"
+		end if
+		if new_router == null and new_switch == null then
+			type = "DEVICE"
+		end if
+		print(type + " [" + ip + "]\n" + "-" * (ip.len + 9))
+	else
+		print("ROUTER [" + address + "]\n" + "-" * (address.len + 9))
+	end if
 	if not ports then continue
 	if typeof(ports) == "string" then continue
-	if ip == router.local_ip then
-		print("ROUTER [" + address + "]\n" + "-" * (address.len + 9))
-	else
-		print("ROUTER [" + ip + "]\n" + "-" * (ip.len + 9))
-	end if
 	get_netmap(ports)
 end for
 exit("Program ended")
