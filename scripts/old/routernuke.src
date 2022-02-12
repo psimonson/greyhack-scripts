@@ -1,0 +1,54 @@
+// routernuke.src - Get root access if possible.
+import_code("/home/5n4k3/src/helper.src")
+
+if params.len < 1 or params.len > 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [address] (lan_address)</b>")
+if not is_valid_ip(params[0]) or not is_valid_ip(params[1]) then exit(get_name() + ": Not a valid IP address.")
+
+mx = get_library("metaxploit.so", true)
+if not mx then exit
+lib = use_exploit(mx, params[0])
+if not lib then exit
+shell = null
+root_hash = null
+
+// Main code below.
+memory = mx.scan(lib)
+for mem in memory
+	data = mx.scan_address(lib, mem).split("Unsafe check: ")
+	for line in data
+		if line == data[0] then continue
+		
+		// Get value from memory address
+		value = line[line.indexOf("<b>")+3:line.indexOf("</b>")]
+		value = value.replace("\n", "")
+		result = lib.overflow(mem, value, params[1])
+		if not result then continue
+		
+		// Process exploit
+		if typeof(result) == "computer" then
+			//result.host_computer.change_password("root", "dick")
+			file = result.File("/etc/passwd")
+			if not file then continue
+			if not file.has_permission("r") then exit(get_name() + ": Permission denied.")
+			if file.is_binary then exit(get_name() + ": File was a binary.")
+				
+			cont = file.get_content.split("\n")[0]
+			if not cont then exit(get_name() + "Can't get file content.")
+			root_hash = cont.split(":")
+			if root_hash.len != 2 then root_hash = null
+		else if not shell and typeof(result) == "shell" then
+			shell = result
+		else
+			print("Computer needed but, got " + typeof(result))
+		end if
+	end for
+end for
+
+if root_hash then
+	root_shell = shell.host_computer.get_shell(root_hash[0], root_hash[1])
+	if not root_shell then exit(get_name() + ": Can't get root shell.")
+	root_shell.start_terminal
+else
+	shell.start_terminal
+end if
+

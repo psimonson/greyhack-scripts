@@ -1,0 +1,81 @@
+// probe.src - Deep probe for a network.
+import_code("/home/5n4k3/src/helper.src")
+
+if params.len != 1 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [address]</b>")
+if not is_valid_ip(params[0]) then exit(get_name() + ": Invalid IP address.")
+if not get_shell.host_computer.is_network_active then exit(get_name() + ": No internet access.")
+
+address = params[0]
+islanip = is_lan_ip(address)
+	
+if islanip then
+	router = get_router
+else
+	router = get_router(address)
+end if
+
+if router == null then exit(get_name() + ": IP address not found.")
+ports = null
+
+if not islanip then
+	ports = router.used_ports
+else
+	ports = router.device_ports(address)
+end if
+
+if ports == null then exit(get_name() + ": IP address not found.")
+if typeof(ports) == "string" then exit(ports)
+
+get_netmap = function(ports)
+	if ports == null then return print_error("Can't find ports.")
+	if typeof(ports) == "string" then return print_error(ports)
+	
+	for port in ports
+		service = router.port_info(port)
+		lan_ip = port.get_lan_ip
+		status = "open"
+	
+		if port.is_closed and is_lan_ip(lan_ip) then
+			status = "closed"
+		end if
+		
+		info = info + "\n" + port.port_number + " " + status + " " + service + " " + lan_ip
+	end for
+	print(format_columns(info) + "\n")
+end function
+
+info = "PORT STATE SERVICE VERSION LAN"
+print("\nStarting " + get_name() + " v1.0 at " + current_date)
+print("Interesting ports on " + address + "\n")
+
+if ports.len == 0 then exit(get_name() + ": Scan finished. No open ports.")
+
+for ip in router.devices_lan_ip
+	type = "ROUTER"
+	ports = router.device_ports(ip)
+	if router.local_ip != ip then
+		new_router = get_router(ip)
+		if new_router != null then
+			hidden_ports = new_router.device_ports(ip)
+			if hidden_ports != null and typeof(hidden_ports) == "list" then
+				ports = ports + hidden_ports
+			end if
+		else
+			new_switch = get_switch(ip)
+			if new_switch != null then
+				type = "SWITCH"
+			end if
+		end if
+		if new_router == null and new_switch == null then
+			type = "DEVICE"
+		end if
+		print(type + " [" + ip + "]\n" + "-" * (ip.len + 9))
+	else
+		print(type + " [" + address + "]\n" + "-" * (address.len + 9))
+	end if
+	if not ports then continue
+	if typeof(ports) == "string" then continue
+	get_netmap(ports)
+end for
+exit("Program ended")
+

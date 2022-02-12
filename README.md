@@ -10,7 +10,9 @@ simple description.
 
 ## Notes
 
- - Old scripts work but the latest scripts work perfect all the time.
+ - Old scripts work perfect all the time (been tested for hours of gameplay).
+
+ - New scripts are with all extra print statements and debugging stripped out.
 
 ### Scripts (Latest)
 
