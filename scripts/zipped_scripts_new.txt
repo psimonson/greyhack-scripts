@@ -1536,13 +1536,13 @@ else
 	ports = router.device_ports(address)
 end if
 
-if ports == null then exit(get_name() + ": IP address not found.")
+if ports == null or ports.len == 0 then exit(get_name() + ": No ports open.")
 if typeof(ports) == "string" then exit(ports)
 
 get_netmap = function(ports)
-	if ports == null then return print_error("Can't find ports.")
-	if typeof(ports) == "string" then return print_error(ports)
-	
+	if not ports or ports.len == 0 then return print_error("No ports open.\n")
+	if typeof(ports) == "string" then return print_error(ports + "\n")
+
 	for port in ports
 		service = router.port_info(port)
 		lan_ip = port.get_lan_ip
@@ -1568,25 +1568,25 @@ for ip in router.devices_lan_ip
 	ports = router.device_ports(ip)
 	if router.local_ip != ip then
 		new_router = get_router(ip)
-		if new_router != null then
+		if new_router then
 			hidden_ports = new_router.device_ports(ip)
-			if hidden_ports != null and typeof(hidden_ports) == "list" then
-				ports = ports + hidden_ports
+			if hidden_ports and typeof(hidden_ports) == "list" then
+				ports.push(hidden_ports)
 			end if
 		else
 			new_switch = get_switch(ip)
-			if new_switch != null then
+			if new_switch then
 				type = "SWITCH"
+			else
+				type = "DEVICE"
 			end if
 		end if
-		if new_router == null and new_switch == null then
-			type = "DEVICE"
-		end if
-		print(type + " [" + ip + "]\n" + "-" * (ip.len + 9))
-	else
-		print(type + " [" + address + "]\n" + "-" * (address.len + 9))
 	end if
-	if not ports then continue
+	linebreak = ""
+	if not ports or ports.len == 0 then linebreak = "\nNo ports open.\n"
+	if router.local_ip == ip then ip = address
+	print(type + " [" + ip + "]\n" + "-" * (ip.len + 9) + linebreak)
+	if not ports or ports.len == 0 then continue
 	if typeof(ports) == "string" then continue
 	get_netmap(ports)
 end for
