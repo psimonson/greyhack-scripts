@@ -26,9 +26,10 @@ end if
 if ports == null or ports.len == 0 then exit(get_name() + ": No ports open.")
 if typeof(ports) == "string" then exit(ports)
 
-get_netmap = function(ports)
-	if not ports or ports.len == 0 then return print_error("No ports open.\n")
+get_netmap = function(ports = null)
+	if not ports then return print_error("No ports open.\n")
 	if typeof(ports) == "string" then return print_error(ports + "\n")
+	if ports.len == 0 then return print_error("No ports open.\n")
 
 	for port in ports
 		service = router.port_info(port)
@@ -52,20 +53,30 @@ if ports.len == 0 then exit(get_name() + ": Scan finished. No open ports.")
 
 for ip in router.devices_lan_ip
 	type = "ROUTER"
-	ports = router.device_ports(ip)
-	if router.local_ip != ip then
+	ports = []
+	if router.local_ip == ip then
+		ports = router.device_ports(ip)
+	else
 		new_router = get_router(ip)
 		if new_router then
 			hidden_ports = new_router.device_ports(ip)
 			if hidden_ports and typeof(hidden_ports) == "list" then
-				ports.push(hidden_ports)
+				ports = ports + hidden_ports
 			end if
-		else
-			new_switch = get_switch(ip)
-			if new_switch then
-				type = "SWITCH"
-			else
-				type = "DEVICE"
+		end if
+		new_switch = get_switch(ip)
+		if new_switch then
+			type = "SWITCH"
+			hidden_ports = new_switch.device_ports(ip)
+			if hidden_ports and typeof(hidden_ports) == "list" then
+				ports = ports + hidden_ports
+			end if
+		end if
+		if not new_router and not new_switch then
+			type = "DEVICE"
+			hidden_ports = router.device_ports(ip)
+			if hidden_ports and typeof(hidden_ports) == "list" then
+				ports = ports + hidden_ports
 			end if
 		end if
 	end if
