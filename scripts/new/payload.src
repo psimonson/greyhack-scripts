@@ -1,0 +1,14 @@
+// payload.src - Local elivatation of priviledges.
+import_code("/home/5n4k3/src/helper.src")
+import_code("/home/5n4k3/src/shellhelp.src")
+
+if params.len != 0 then exit("<b>Usage: " + get_name() + "</b>")
+
+filenames = ["metaxploit.so", "crypto.so", "payload"]
+
+shell = get_shell
+if not shell then exit(get_name() + ": Can't get shell.")
+do_shell(shell, filenames)
+cleanup(shell, filenames)
+exit("Program ended")
+
