@@ -24,12 +24,11 @@ else
 end if
 
 if ports == null or ports.len == 0 then exit(get_name() + ": No ports open.")
-if typeof(ports) == "string" then exit(ports)
+if typeof(ports) == "string" then exit(get_name() + ": " + ports)
 
 get_netmap = function(ports = null)
-	if not ports then return print_error("No ports open.\n")
-	if typeof(ports) == "string" then return print_error(ports + "\n")
-	if ports.len == 0 then return print_error("No ports open.\n")
+	if not ports or ports.len == 0 then return print("No ports open\n")
+	if typeof(ports) == "string" then return print(ports + "\n")
 
 	for port in ports
 		service = router.port_info(port)
@@ -51,42 +50,33 @@ print("Interesting ports on " + address + "\n")
 
 if ports.len == 0 then exit(get_name() + ": Scan finished. No open ports.")
 
+print("[<color=#AABB00><b>TARGET</b></color>] - [<color=#AABB00><b>" + address + "</b></color>]\n" + "-" * (address.len + 9))
+get_netmap(ports)
 for ip in router.devices_lan_ip
-	type = "ROUTER"
 	ports = []
-	if router.local_ip == ip then
-		ports = router.device_ports(ip)
-	else
+	type = "ROUTER"
+	if router.local_ip != ip then
 		new_router = get_router(ip)
 		if new_router then
-			hidden_ports = new_router.device_ports(ip)
-			if hidden_ports and typeof(hidden_ports) == "list" then
-				ports = ports + hidden_ports
+			new_ports = new_router.device_ports(ip)
+			if new_ports and typeof(new_ports) == "list" then
+				ports = ports + new_ports
 			end if
 		end if
 		new_switch = get_switch(ip)
 		if new_switch then
 			type = "SWITCH"
-			hidden_ports = new_switch.device_ports(ip)
-			if hidden_ports and typeof(hidden_ports) == "list" then
-				ports = ports + hidden_ports
-			end if
 		end if
 		if not new_router and not new_switch then
 			type = "DEVICE"
-			hidden_ports = router.device_ports(ip)
-			if hidden_ports and typeof(hidden_ports) == "list" then
-				ports = ports + hidden_ports
+			new_ports = router.device_ports(ip)
+			if new_ports and typeof(new_ports) == "list" then
+				ports = ports + new_ports
 			end if
 		end if
+		print("[<color=#AABB00><b>" + type + "</b></color>] - [<color=#AABB00><b>" + ip + "</b></color>]\n" + "-" * (ip.len + 9))
+		get_netmap(ports)
 	end if
-	linebreak = ""
-	if not ports or ports.len == 0 then linebreak = "\nNo ports open.\n"
-	if router.local_ip == ip then ip = address
-	print(type + " [" + ip + "]\n" + "-" * (ip.len + 9) + linebreak)
-	if not ports or ports.len == 0 then continue
-	if typeof(ports) == "string" then continue
-	get_netmap(ports)
 end for
 exit("Program ended")
 
