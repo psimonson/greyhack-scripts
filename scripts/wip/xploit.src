@@ -1,0 +1,519 @@
+///////////////////////////////////////////////////////////////////
+// xploit.src - Multipurpose hacking and scanning tool.
+// Entire source written by Philip "5n4k3" Simonson
+///////////////////////////////////////////////////////////////////
+
+// Include my helper code
+import_code("/home/5n4k3/src/helper.src")
+
+// Function for creating an option interface
+get_option = function(options = null, menu_name = "")
+	if not options then return print_error("Please provide an option list.")
+	if typeof(options) != "list" then return print_error("Option list argument, not a list.")
+	
+	option = null
+	while not option or option <= 0 or option > options.len
+		for i in range(1, options.len)
+			print("[<color=#00AA00><b>" + str(i) + "</b></color>] - " + options[i - 1])
+		end for
+		print("[<color=#00AA00><b>0</b></color>] - Exit")
+		option = user_input("Enter selection [<color=#AA0000><b>" + menu_name + "</b></color>]: ")
+		option = option.to_int
+		if option == 0 then break
+	end while
+	return option
+end function
+
+// Function for built-in xmap
+use_xmap = function(address)
+	islanip = is_lan_ip(address)
+
+	print_ports = function(ports)
+		if typeof(ports) == "string" then return print(ports)
+		if ports.len == 0 then return print("Scan finished. No open ports.\n")
+	
+		info = "PORT STATE SERVICE VERSION LAN"
+		for port in ports
+			service_info = router.port_info(port)
+			lan_ip = port.get_lan_ip
+			port_status = "open"
+			if port.is_closed then
+				port_status = "closed"
+			end if
+			info = info + "\n" + port.port_number + " " + port_status + " " + service_info + " " + lan_ip
+		end for
+		print(format_columns(info) + "\n")
+	end function
+
+	if islanip then
+	   router = get_router
+	else 
+	   router = get_router(address)
+	end if
+
+	if router == null then return print("Error: IP address not found.")
+	print("\nStarting xmap v1.0 at " + current_date)
+	print("Interesting ports on " + address + "\n")
+
+	print_ports(router.used_ports)
+	ports = []
+	for lan in router.devices_lan_ip
+	   ports = ports + router.device_ports(lan)
+	end for
+	print_ports(ports)
+end function
+
+// Get bank or mail from server
+use_getfile = function(address, port, user_file)
+	GetFile = function(result, userFile)
+		if typeof(result) == "file" then
+			while not result.path == "/"
+				result = result.parent
+			end while
+		
+			// Get user home directory
+			folders = result.get_folders
+			for folder in folders
+				if folder.name == "home" then
+					homeFolder = folder
+					break
+				end if
+			end for
+			if not homeFolder then return print("Error: Can't access home dir.")
+		else if typeof(result) == "computer" then
+			homeFolder = result.File("/home")
+			if not homeFolder then return print("Error: Can't access home dir.")
+		end if
+
+		search_home(homeFolder, user_file)
+		return
+	end function
+	
+	// Initialize metaxploit
+	mx = get_library("metaxploit.so", true)
+	if not mx then return
+	lib = use_exploit(mx, address, port)
+	if not lib then return
+	
+	// Get all exploits available.
+	print("Launching all available exploits for target...")
+	exploits = get_exploits(lib, address, port, true)
+	if not exploits then return print_error("No exploits found!")
+
+	// Scan all available exploits against target
+	for exploit in exploits
+		address = exploit["address"]
+		for value in exploit["values"]
+			result = lib.overflow(address, value["value"])
+			if not result then continue
+
+			// Check for shell or computer
+			if typeof(result) == "shell" then
+				remotepc = result.host_computer
+				GetFile(remotepc.File("/"), user_file)
+				return
+			else if typeof(result) == "computer" then
+				// Get user file
+				GetFile(result, user_file)
+				return
+			else if typeof(result) == "file" then
+				// Get user file.
+				while result.path != "/"
+					result = result.parent
+				end while
+				
+				for folder in result.get_folders
+					if folder.name == "home" then
+						GetFile(folder, user_file)
+						return
+					end if
+				end for
+			end if
+		end for
+	end for
+end function
+
+// Function to replicate to remote machine
+replicate = function(remote_shell)
+	if not remote_shell then return null
+	if remote_shell and typeof(remote_shell) != "shell" then return null
+	
+	input = null
+	while not input or input == ""
+		input = user_input("Do you want to copy the exploit system (y/n)? ")
+	end while
+	
+	if input == "y" or input == "Y" then
+		// Upload files
+		file = remote_shell.host_computer.File("/home/guest/metaxploit.so")
+		if not file then get_shell.scp(parent_path(program_path) + "/metaxploit.so", "/home/guest", remote_shell)
+		file = remote_shell.host_computer.File("/home/guest/crypto.so")
+		if not file then get_shell.scp(parent_path(program_path) + "/crypto.so", "/home/guest", remote_shell)
+		file = remote_shell.host_computer.File("/home/guest/xploit")
+		if not file then get_shell.scp(program_path, "/home/guest", remote_shell)
+
+		// Change files ownership
+		filenames = ["metaxploit.so", "crypto.so", "xploit"]
+		for filename in filenames
+			file = remote_shell.host_computer.File("/home/guest/" + filename)
+			if not file then continue
+			file.set_owner("guest", 0)
+			file.set_group("guest", 0)
+		end for
+		
+		input = null
+		while not input or input == ""
+			input = user_input("Do you want to launch a shell with the exploit (y/n)? ")
+		end while
+		
+		if input == "y" or input == "y" then
+			remote_shell.launch("/home/guest/xploit", "")
+			remote_shell.start_terminal
+		end if
+	else
+		input = null
+		while not input or input == ""
+			input = user_input("Do you want to launch a shell (y/n)? ")
+		end while
+	
+		if input == "y" or input == "Y" then
+			remote_shell.start_terminal
+		end if
+	end if
+	return remote_shell
+end function
+
+// Function to clean itself from the host
+use_clean = function()
+	guest_folder = get_shell.host_computer.File("/home/guest")
+	if not guest_folder then return print_error("Guest folder not found.")
+	for file in guest_folder.get_files
+		if file.name == "metaxploit.so" or file.name == "crypto.so" or file.name == "xploit" then
+			print("Removing file: " + file.path)
+			file.delete
+		end if
+	end for
+	
+	print("System was cleaned.")
+	return
+end function
+
+// Function built-in local exploiter
+use_scan = function(address = null, port = null, local = false)
+	// Get exploit library
+	mx = get_library("metaxploit.so", true)
+	if not mx then return null
+	
+	lib = null
+	exploits = null
+	if not local then
+		if port != null then
+			lib = use_exploit(mx, address, port)
+			if not lib then return null
+			exploits = get_exploits(lib, address, port, true)
+		else
+			lib = use_exploit(mx, address)
+			if not lib then return null
+			exploits = get_exploits(lib, address, null, true)
+		end if
+	else
+		lib = use_exploit(mx, address, null, true)
+		if not lib then return null
+		exploits = get_exploits(lib, null, null, true)
+	end if
+	if not exploits then return null
+	if exploits.len == 0 then return null
+	return [lib, exploits]
+end function
+
+// Function built-in exploiter
+do_exploit = function(lib = null, exploits = null)
+	// Function to get the password file at /etc
+	get_passwd = function(result)
+		if typeof(result) == "computer" then
+			file = result.File("/etc/passwd")
+			if not file then return false
+			if file.is_binary then return false
+			if not file.has_permission("r") then
+				print(file.path + ": Permission denied.")
+				return false
+			end if
+			print(file.path + ":")
+			print(file.get_content)
+			return true
+		else if typeof(result) == "file" then
+			while result.path != "/"
+				result = result.parent
+			end while
+			
+			// Get all folders in root directory
+			folders = result.get_folders
+			for folder in folders
+				if folder.name == "etc" then
+					result = folder
+					break
+				end if
+			end for
+			if not result then return false
+			if not result.is_binary then return false
+			
+			// Get all files in /etc
+			files = result.get_files
+			for file in files
+				if file.name == "passwd" then
+					result = file
+					break
+				end if
+			end for
+			if not result then return false
+			if result.is_binary then return false
+			if not result.has_permission("r") then
+				print(result.path + ": Permission denied.")
+				return false
+			end if
+			print(file.path + ":\n" + file.get_content + "\n")
+			return true
+		end if
+	end function
+
+	// Function to do something with the result.
+	do_result = function(shell, computer, userfile)
+		// Get password file
+		result = computer
+		if not result then result = userfile
+		if result then get_passwd(result)
+				
+		// Start new shell
+		if shell then
+			shell = replicate(shell)
+		end if
+		
+		return shell
+	end function
+	
+	if not lib or not exploits then
+		print("Please run remote scanner first.")
+		return null
+	end if
+
+	// Globals
+	shell = null
+	computer = null
+	userfile = null
+	
+	// Scan for memory addresses
+	for exploit in exploits
+		address = exploit["address"]
+		for value in exploit["values"]
+			if shell and computer or userfile then do_result(shell, computer, userfile)
+
+			if not shell and value["type"] == "shell" then
+				shell = value["result"]
+				if shell and computer or userfile then do_result(shell, computer, userfile)
+			else if not computer and value["type"] == "computer" then
+				computer = value["result"]
+			else if not userfile and value["type"] == "file" then
+				userfile = value["result"]
+			end if
+		end for
+	end for
+
+	return shell
+end function
+
+start_message = "******************************************************\n" + "*      ___    ___                                    *\n" + "*       \ \  / /   ______  ___          _  ___       *\n" + "*        \ \/ /   /  ___ \ | |    ___  |_| | |_      *\n" + "*        / /\ \   | |___|| | |_  | | |  _  |  _|     *\n" + "*       / /  \ \  | _____/ |___| | | | | | | |       *\n" + "*      ---------- | |             ---   -   -        *\n" + "*                  -                                 *\n" + "******************************************************\n"
+
+// Actual program below
+if params.len != 0 then exit("<b>Usage: " + get_name() + "</b>")
+
+main_menu = ["Port Scanner", "Remote Hack", "Local Hack", "System"]
+address = null
+port = null
+option = null
+shell = null
+
+print(start_message)
+while true
+	option = get_option(main_menu, "MAIN")
+
+	if option == 0 then
+		exit("Program ended")
+	else if option == 1 then
+		address = null
+	
+		while not address or not is_valid_ip(address)
+			address = user_input("Enter IP address: ")
+		end while
+		
+		use_xmap(address)
+	else if option == 2 then
+		remote_menu = ["Remote Scan", "Exploit System", "Launch Shell", "Get Mail", "Get Bank"]
+		
+		remote_lib = null
+		remote_address = null
+		remote_port = null
+		remote_exploits = null
+		done = false
+		while not done
+		
+			option = get_option(remote_menu, "REMOTE")
+			if option == 0 then
+				done = true
+			else if option == 1 then
+				// Scan for exploits
+				address = null
+				port = null
+				while not address or not is_valid_ip(address)
+					address = user_input("Enter IP Address: ")
+				end while
+			
+				input = user_input("Do you want to enter a port (y/n)? ")
+				if input == "y" or input == "Y" then
+					while not port or port < 0 or port > 65535
+						port = user_input("Enter Port: ")
+						port = port.to_int
+					end while
+				end if
+				if not port then
+					print("Running scanner on router...")
+					stuff = use_scan(address, null)
+					if not stuff then continue
+					remote_exploits = stuff[1]
+					remote_address = address
+					remote_port = port
+					remote_lib = stuff[0]
+				else
+					print("Running scanner at " + address + " on port " + str(port))
+					stuff = use_scan(address, port)
+					if not stuff then continue
+					remote_exploits = stuff[1]
+					remote_address = address
+					remote_port = port
+					remote_lib = stuff[0]
+				end if
+			else if option == 2 then
+				// Remote exploit
+				if not remote_address or not remote_port or not remote_exploits then
+					print("Please run remote scanner first.")
+					continue
+				end if
+				
+				if not port then
+					print("Running exploits on router...")
+					shell = do_exploit(remote_lib, remote_exploits)
+				else
+					print("Running exploits at " + remote_address + " on port " + str(remote_port))
+					shell = do_exploit(remote_lib, remote_exploits)
+				end if
+			else if option == 3 then
+				// Launch shell
+				if shell and typeof(shell) == "shell" then
+					shell.launch("/home/guest/xploit", "")
+					shell.start_terminal
+				else
+					print("You haven't obtained a shell yet, please run exploit first.")
+				end if
+			else if option == 4 then
+				// Get mail files
+				address = null
+				port = null
+		
+				// Get address from user
+				while not address or not is_valid_ip(address)
+					address = user_input("Enter IP address: ")
+				end while
+			
+				// Get port from user
+				while not port or port < 0 or port > 65535
+					port = user_input("Enter port number: ")
+					port = port.to_int
+				end while
+			
+				use_getfile(address, port, "Mail.txt")
+			else if option == 5 then
+				// Get bank files
+				address = null
+				port = null
+			
+				// Get address from user
+				while not address or not is_valid_ip(address)
+					address = user_input("Enter IP address: ")
+				end while
+			
+				// Get port from user
+				while not port or port < 0 or port > 65535
+					port = user_input("Enter port number: ")
+					port = port.to_int
+				end while
+			
+				use_getfile(address, port, "Bank.txt")
+			else
+				print("Invalid option")
+			end if
+		end while
+	else if option == 3 then
+		local_menu = ["Scan for Exploits", "Exploit Local Machine"]
+		
+		local_exploits = null
+		local_lib = null
+		done = false
+		while not done
+			option = get_option(local_menu, "LOCAL")
+			if option == 0 then
+				done = true
+			else if option == 1 then
+				// Do scan local target
+				lib_menu = []
+				lib_path = []
+				files = get_shell.host_computer.File("/lib").get_files
+				if not files then continue
+				for file in files
+					lib_menu.push(file.name)
+					lib_path.push(file.path)
+				end for
+				if lib_menu.len == 0 then continue
+				if lib_menu.len != lib_path.len then continue
+				
+				isdone = false
+				while not isdone
+					option = get_option(lib_menu, "LOCAL SCAN")
+					if option == 0 then
+						isdone = true
+					else if option >= 1 and option <= lib_menu.len then
+						stuff = use_scan(lib_path[option - 1], null, true)
+						if not stuff then continue
+						local_exploits = stuff[1]
+						local_lib = stuff[0]
+					else
+						print("Option not available.")
+					end if
+				end while
+			else if option == 2 then
+				if not local_exploits then
+					print("Please run a scan first.")
+					continue
+				end if
+				shell = do_exploit(local_lib, local_exploits)
+			else
+				print("Option not available.")
+			end if
+		end while
+	else if option == 4 then
+		system_menu = ["Clean Xploit"]
+		
+		done = false
+		while not done
+			option = get_option(system_menu, "SYSTEM")
+			if option == 0 then
+				done = true
+			else if option == 1 then
+				use_clean()
+			else
+				print("Option not available.")
+			end if
+		end while
+	else
+		print("Option not available.")
+	end	 if
+end while
+
