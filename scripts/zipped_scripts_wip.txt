@@ -1701,9 +1701,9 @@ do_exploit = function(address = null, port = null)
 end function
 
 // Function to get shell on remote machine.
-do_shell = function(shell = null, filenames = null)
+do_shell = function(shell = null, brouter = false)
 	if not shell or typeof(shell) != "shell" then exit(get_name() + ": Could not get shell.")
-	if not filenames or typeof(filenames) != "list" then exit(get_name() + ": Filenames not supplied.")
+	if typeof(brouter) != "number" then exit(get_name() + ": Flag must be true or false.")
 	if active_user == "root" then exit(get_name() + ": Can't get root shell, already root.")
 	
 	print("<color=#AABB00><b>Starting to get shell on " + shell.host_computer.local_ip + "...</b></color>\n")
@@ -1711,8 +1711,14 @@ do_shell = function(shell = null, filenames = null)
 	if not crypto then
 		print("Warning: Can't find crypto library.")
 	else
-		modules = ["init.so", "kernel_module.so", "net.so"]
+		modules = []
 		passwd = null
+		
+		if brouter then
+			modules = ["init.so", "kernel_router.so", "net.so"]
+		else
+			modules = ["init.so", "kernel_module.so", "net.so"]
+		end if
 		
 		mx = get_library("metaxploit.so", true)
 		if not mx then exit(get_name() + ": Can't find metaxploit.")
@@ -1769,10 +1775,9 @@ do_shell = function(shell = null, filenames = null)
 		if not passwd then quit(shell, "Can't get password file.")
 		cont = get_passfile(passwd)
 		user = cont[0].split(":")
-		print("Deciphering password for user: " + user[0] + "...\n")
+		print("Deciphering password for user: " + user[0] + "\n")
 		pass = crypto.decipher(user[1])
 		rootshell = get_shell(user[0], pass)
-		//cleanup(shell, filenames)
 		if not rootshell then exit(get_name() + ": Can't get root shell.")
 		rootshell.start_terminal
 	end if
@@ -1828,17 +1833,17 @@ if params[1].to_int == 0 then
 	print("<color=#AABB00><b>Running router exploit on " + params[0] + "...</b></color>\n")
 	shell = do_exploit(params[0])
 
-	filenames = ["metaxploit.so", "crypto.so", "mrrobot", "payload"]
 	if new_params.len != 0 then
+		filenames = ["metaxploit.so", "crypto.so", "mrrobot", "payload"]
 		if not shell then exit(get_name() + ": Could not obtain shell.")
 		replicate(shell, filenames)
 		shell.launch("/home/guest/mrrobot", new_params.join(" "))
 		cleanup(shell, filenames)
-		exit("Program ended")
 	else
+		filenames = ["metaxploit.so", "crypto.so", "mrrobot", "payload"]
 		if not shell then exit(get_name() + ": Could not obtain shell.")
-		cleanup(shell, filenames)
-		shell.start_terminal
+		replicate(shell, filenames)
+		shell.launch("/home/guest/payload", "-r")
 	end if
 else
 	print("<color=#AABB00><b>[*] Running server exploit...</b></color>")
@@ -1852,15 +1857,14 @@ else
 		replicate(shell, filenames)
 		shell.launch("/home/guest/mrrobot", new_params.join(" "))
 		cleanup(shell, filenames)
-		exit("Program ended")
 	else
 		// Get new shell and exploit it.
 		filenames = ["metaxploit.so", "crypto.so", "mrrobot", "payload"]
 		replicate(shell, filenames)
 		shell.launch("/home/guest/payload", "")
-		exit("Program ended")
 	end if
 end if
+exit("Program ended")
 
 @@@@@@@@@@
 @@@@@/home/5n4k3/src/payload.src
@@ -1873,9 +1877,9 @@ import_code("/home/5n4k3/src/menu.src")
 if params.len > 1 then exit("<b>Usage: " + get_name() + " [(opt) -i]</b>")
 
 if params.len == 0 then
-	filenames = ["metaxploit.so", "crypto.so", "mrrobot", "payload"]
-	do_shell(get_shell, filenames)
-	exit("Program ended")
+	do_shell(get_shell)
+else if params.len == 1 and params[0] == "-r" then
+	do_shell(get_shell, true)
 else if params.len == 1 and params[0] == "-i" then
 	filenames = ["metaxploit.so", "crypto.so", "mrrobot", "payload"]
 	options = ["Probe", "Launch", "Cleanup"]

@@ -18,17 +18,17 @@ if params[1].to_int == 0 then
 	print("<color=#AABB00><b>Running router exploit on " + params[0] + "...</b></color>\n")
 	shell = do_exploit(params[0])
 
-	filenames = ["metaxploit.so", "crypto.so", "mrrobot", "payload"]
 	if new_params.len != 0 then
+		filenames = ["metaxploit.so", "crypto.so", "mrrobot", "payload"]
 		if not shell then exit(get_name() + ": Could not obtain shell.")
 		replicate(shell, filenames)
 		shell.launch("/home/guest/mrrobot", new_params.join(" "))
 		cleanup(shell, filenames)
-		exit("Program ended")
 	else
+		filenames = ["metaxploit.so", "crypto.so", "mrrobot", "payload"]
 		if not shell then exit(get_name() + ": Could not obtain shell.")
-		cleanup(shell, filenames)
-		shell.start_terminal
+		replicate(shell, filenames)
+		shell.launch("/home/guest/payload", "-r")
 	end if
 else
 	print("<color=#AABB00><b>[*] Running server exploit...</b></color>")
@@ -42,13 +42,12 @@ else
 		replicate(shell, filenames)
 		shell.launch("/home/guest/mrrobot", new_params.join(" "))
 		cleanup(shell, filenames)
-		exit("Program ended")
 	else
 		// Get new shell and exploit it.
 		filenames = ["metaxploit.so", "crypto.so", "mrrobot", "payload"]
 		replicate(shell, filenames)
 		shell.launch("/home/guest/payload", "")
-		exit("Program ended")
 	end if
 end if
+exit("Program ended")
 

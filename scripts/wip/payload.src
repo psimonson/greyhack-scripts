@@ -7,9 +7,9 @@ import_code("/home/5n4k3/src/menu.src")
 if params.len > 1 then exit("<b>Usage: " + get_name() + " [(opt) -i]</b>")
 
 if params.len == 0 then
-	filenames = ["metaxploit.so", "crypto.so", "mrrobot", "payload"]
-	do_shell(get_shell, filenames)
-	exit("Program ended")
+	do_shell(get_shell)
+else if params.len == 1 and params[0] == "-r" then
+	do_shell(get_shell, true)
 else if params.len == 1 and params[0] == "-i" then
 	filenames = ["metaxploit.so", "crypto.so", "mrrobot", "payload"]
 	options = ["Probe", "Launch", "Cleanup"]

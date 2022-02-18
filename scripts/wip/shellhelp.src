@@ -83,9 +83,9 @@ do_exploit = function(address = null, port = null)
 end function
 
 // Function to get shell on remote machine.
-do_shell = function(shell = null, filenames = null)
+do_shell = function(shell = null, brouter = false)
 	if not shell or typeof(shell) != "shell" then exit(get_name() + ": Could not get shell.")
-	if not filenames or typeof(filenames) != "list" then exit(get_name() + ": Filenames not supplied.")
+	if typeof(brouter) != "number" then exit(get_name() + ": Flag must be true or false.")
 	if active_user == "root" then exit(get_name() + ": Can't get root shell, already root.")
 	
 	print("<color=#AABB00><b>Starting to get shell on " + shell.host_computer.local_ip + "...</b></color>\n")
@@ -93,8 +93,14 @@ do_shell = function(shell = null, filenames = null)
 	if not crypto then
 		print("Warning: Can't find crypto library.")
 	else
-		modules = ["init.so", "kernel_module.so", "net.so"]
+		modules = []
 		passwd = null
+		
+		if brouter then
+			modules = ["init.so", "kernel_router.so", "net.so"]
+		else
+			modules = ["init.so", "kernel_module.so", "net.so"]
+		end if
 		
 		mx = get_library("metaxploit.so", true)
 		if not mx then exit(get_name() + ": Can't find metaxploit.")
@@ -151,10 +157,9 @@ do_shell = function(shell = null, filenames = null)
 		if not passwd then quit(shell, "Can't get password file.")
 		cont = get_passfile(passwd)
 		user = cont[0].split(":")
-		print("Deciphering password for user: " + user[0] + "...\n")
+		print("Deciphering password for user: " + user[0] + "\n")
 		pass = crypto.decipher(user[1])
 		rootshell = get_shell(user[0], pass)
-		//cleanup(shell, filenames)
 		if not rootshell then exit(get_name() + ": Can't get root shell.")
 		rootshell.start_terminal
 	end if
