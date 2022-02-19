@@ -569,55 +569,6 @@ else
 end if
 
 @@@@@@@@@@
-@@@@@/home/5n4k3/src/lhack.src
-usage = "<b>Usage: "+program_path.split("/")[-1]+" [lib] [memory] [value]"
-if params.len != 3 or params[0] == "-h" or params[0] == "--help" then exit(usage)
-
-mx = include_lib("/lib/metaxploit.so")
-if not mx then mx = include_lib(parent_path(program_path) + "/metaxploit.so")
-if not mx then exit("Error: Can't find metaxploit library")
-lib = mx.load("/lib/" + params[0])
-if not lib then exit("Error: Can't dump library")
-result = lib.overflow(params[1], params[2])
-if not result then exit("Error: Can't escalate priviledges")
-if typeof(result) == "computer" then
-	file = result.File("/etc/passwd")
-	if file != null then
-		if file.is_binary then exit("File "+file.path+" is binary, can't read")
-		if file.is_folder then exit("File "+file.path+" is folder, can't read")
-		if file.len == 0 then exit("File "+file.path+" is empty")
-		if file.has_permission("r") then exit(file.path+": Permission denied")
-		print(file.get_content)
-	end if
-else if typeof(result) == "file" then
-	while not result.path == "/"
-		result = result.parent
-	end while
-	
-	folders = result.get_folders
-	for folder in folders
-		if folder.path == "/etc" then
-			result = folder
-			break
-		end if
-	end for
-	
-	files = result.get_files
-	for file in files
-		if file.path == "/etc/passwd" then
-			result = file
-			break
-		end if
-	end for
-	
-	print(result.get_content)
-else if typeof(result) == "shell" then
-	result.start_terminal
-else
-	print("Expected file or computer or shell, got " + result)
-end if
-
-@@@@@@@@@@
 @@@@@/home/5n4k3/src/wifihack.src
 // wifihack - Almost fully automate wifi hacking.
 import_code("/home/5n4k3/src/helper.src")
@@ -819,24 +770,6 @@ for tmp in sdir.get_files
 	end if
 end for
 file.set_content(data)
-
-@@@@@@@@@@
-@@@@@/home/5n4k3/src/lscan.src
-usage = "<b>Usage: "+program_path.split("/")[-1]+" [library]</b>"
-if params.len != 1 or params[0] == "-h" or params[0] == "--help" then exit(usage)
-
-mx = include_lib("/lib/metaxploit.so")
-if not mx then mx = include_lib(parent_path(program_path) + "/metaxploit.so")
-if not mx then exit("Error: metaxploit library not found")
-lib = mx.load(params[0])
-if not lib then exit("Error: Library " + params[0] + " not found")
-print("Library: " + lib.lib_name + " : " + lib.version + "\n")
-mems = mx.scan(lib)
-for mem in mems
-	print(">----[" + mem + "]----<")
-	print(mx.scan_address(lib, mem))
-	print("-------------------")
-end for
 
 @@@@@@@@@@
 @@@@@/home/5n4k3/src/helper.src
@@ -1295,240 +1228,6 @@ for exploit in exploits
 		print("<color=#CC0000>Value >=====[</color><b>" + value["value"] + " : " + value["access"] + "@" + value["type"] + "</b><color=#CC0000>]=====<</color>")
 	end for
 end for
-
-@@@@@@@@@@
-@@@@@/home/5n4k3/src/routerpayload.src
-// routerpayload.src - Get root shell and start it.
-import_code("/home/5n4k3/src/helper.src")
-
-if params.len % 2 != 0 then exit("<b>Usage: " + get_name() + " [address] [port] [...]</b>")
-if not is_valid_ip(params[0]) then exit(get_name() + ": Invalid IP given.")
-if params.len % 2 == 0 and params[1].to_int < 0 or params[1].to_int > 65535 then exit(get_name() + ": Invalid port given.")
-
-mx = get_library("metaxploit.so", true)
-if not mx then exit
-crypto = get_library("crypto.so", true)
-if not crypto then exit
-lib = use_exploit(mx, params[0], params[1].to_int)
-if not lib then exit
-
-exploits = get_exploits(lib, params[0], params[1].to_int, true)
-if not exploits then exit(get_name() + ": Can't find exploits.")
-
-result = null
-passwd = null
-
-for exploit in exploits
-	memory = exploit["address"]
-	print(">---[<color=#AA0000><b>" + memory + "</b></color>]---<")
-	for value in exploit["values"]
-		if not value then continue
-		if result and passwd then break
-		
-		print(value["value"] + " -> " + value["type"])
-		
-		if not result and value["type"] == "shell" then
-			result = value["result"]
-		else if not passwd and value["type"] == "file" then
-			passwd = value["result"]
-			
-			while passwd.path != "/"
-				passwd = passwd.parent
-			end while
-			
-			for folder in passwd.get_folders
-				if folder.name == "etc" then
-					passwd = folder
-					break
-				end if
-			end for
-			
-			for file in passwd.get_files
-				if file.name == "passwd" then
-					passwd = file
-					break
-				end if
-			end for
-		end if
-	end for
-	if result and passwd then break
-end for
-
-import_code("/home/5n4k3/src/shellhelp.src")
-
-if not result then
-	print_error("Can't get shell.")
-	exit("Program ended")
-end if
-
-args = []
-i = 2
-while i < params.len
-	args.push(params[i] + " " + params[i+1])
-	i = i + 2
-end while
-if args.len == 0 then args.push(params[0] + " " + params[1])
-
-filenames = ["metaxploit.so", "crypto.so", "routerpayload", "computerpayload", "0day"]
-replicate(result, filenames)
-result.launch("/home/guest/0day", args.join(" "))
-cleanup(result, filenames)
-
-@@@@@@@@@@
-@@@@@/home/5n4k3/src/computerpayload.src
-// computerpayload.src - Get root shell and start it.
-import_code("/home/5n4k3/src/helper.src")
-
-if params.len != 0 then exit("<b>Usage: " + get_name() + "</b>")
-
-mx = get_library("metaxploit.so", true)
-if not mx then exit
-crypto = get_library("crypto.so", true)
-if not crypto then exit
-
-result = null
-passwd = null
-
-// Run through all modules to find a shell
-modules = ["init.so", "kernel_module.so", "net.so"]
-for module in modules
-	lib = use_exploit(mx, "/lib/" + module, null, true)
-	if not lib then continue
-
-	exploits = get_exploits(lib, null, null, true)
-	if not exploits then continue
-
-	for exploit in exploits
-		memory = exploit["address"]
-		print(">---[<color=#AA0000><b>" + memory + "</b></color>]---<")
-		for value in exploit["values"]
-			if not value then continue
-			if result and passwd then break
-		
-			print(value["value"] + " -> " + value["type"])
-		
-			if not result and value["type"] == "shell" then
-				result = value["result"]
-			else if not passwd and value["type"] == "file" then
-				passwd = value["result"]
-			
-				while passwd.path != "/"
-					passwd = passwd.parent
-				end while
-			
-				for folder in passwd.get_folders
-					if folder.name == "etc" then
-						passwd = folder
-						break
-					end if
-				end for
-			
-				for file in passwd.get_files
-					if file.name == "passwd" then
-						passwd = file
-						break
-					end if
-				end for
-			end if
-		end for
-		if result and passwd then break
-	end for
-	if result and passwd then break
-end for
-
-import_code("/home/5n4k3/src/shellhelp.src")
-
-filenames = ["metaxploit.so", "crypto.so", "computerpayload", "routerpayload", "0day"]
-
-if not result then
-	print_error("Can't get shell.")
-	cleanup(get_shell, filenames)
-	exit
-end if
-
-file = passwd
-if not file then quit(result, "Can't find password file.")
-if not file.has_permission("r") then quit(result, "Permission denied.")
-cont = file.get_content.split("\n")
-if not cont then quit(result, "Can't get password file content.")
-root = cont[0].split(":")
-if not root then quit(result, "Getting root hash failed.")
-password = crypto.decipher(root[1])
-if not password then quit(result, "Can't get root password.")
-rootshell = get_shell(root[0], password)
-if not rootshell then quit(result, "Can't get root shell.")
-cleanup(rootshell, filenames)
-rootshell.start_terminal
-
-@@@@@@@@@@
-@@@@@/home/5n4k3/src/0day.src
-// 0day.src - Copy payload to remote address.
-import_code("/home/5n4k3/src/helper.src")
-
-if params.len % 2 != 0 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [address port] [...]</b>")
-if not is_valid_ip(params[0]) then exit(get_name() + ": Invalid IP address given.")
-if params.len % 2 == 0 and params[1].to_int < 0 or params[1].to_int > 65535 then exit(get_name() + ": Invalid port given.")
-
-mx = get_library("metaxploit.so", true)
-if not mx then exit
-lib = null
-if params[1].to_int > 0 and params[1].to_int <= 65535 then
-	lib = use_exploit(mx, params[0], params[1].to_int)
-else
-	lib = use_exploit(mx, params[0])
-end if
-if not lib then exit
-
-exploits = null
-if params[1].to_int > 0 and params[1].to_int <= 65535 then
-	exploits = get_exploits(lib, params[0], params[1].to_int, true)
-else
-	exploits = get_exploits(lib, null, null, true)
-end if
-if not exploits then exit(get_name() + ": Can't find exploits.")
-
-result = null
-for exploit in exploits
-	memory = exploit["address"]
-	print(">---[<color=#AA0000><b>" + memory + "</b></color>]---<")
-	for value in exploit["values"]
-		print(value["value"] + " -> " + value["type"])
-		if value["type"] == "shell" then
-			result = value["result"]
-			if not result then continue
-			break
-		end if
-	end for
-	if result then break
-end for
-
-if not result then
-	print_error("Can't find shell.")
-	exit("Program ended")
-end if
-
-import_code("/home/5n4k3/src/shellhelp.src")
-
-filenames = ["metaxploit.so", "crypto.so", "routerpayload", "computerpayload", "0day"]
-replicate(result, filenames)
-
-if params[1].to_int == 0 then
-	args = []
-	i = 2
-	
-	while i < params.len
-		args.push(params[i] + " " + params[i+1])
-		i = i + 2
-	end while
-	if args.len == 0 then args.push(params[0] + " " + params[1])
-	
-	print("\nLaunching router payload on " + result.host_computer.local_ip + "...")
-	result.launch("/home/guest/routerpayload", args.join(" "))
-else
-	print("\nLaunching computer payload on " + result.host_computer.local_ip + "...")
-	result.launch("/home/guest/computerpayload", "")
-end if
-exit("Program ended")
 
 @@@@@@@@@@
 @@@@@/home/5n4k3/src/probe.src
@@ -2021,6 +1720,69 @@ probe = function(address = null)
 	print_ports(ports)
 	return
 end function
+
+@@@@@@@@@@
+@@@@@/home/5n4k3/src/routerpass.src
+// routerpass.src - Hack router remotely to retrieve password info.
+import_code("/home/5n4k3/src/helper.src")
+
+// Function to get etc directory file
+get_passwd = function(result)
+	if not result then return null
+	
+	if typeof(result) == "computer" then
+		return result.File("/etc/passwd")
+	else if typeof(result) == "file" then
+		while result.path != "/"
+			result = result.parent
+		end while
+		
+		for folder in result.get_folders
+			if folder.name == "etc" then
+				result = folder
+				break
+			end if
+		end for
+		
+		for file in result.get_files
+			if file.name == "passwd" then
+				return file
+			end if
+		end for
+	end if
+	return null
+end function
+
+if params.len != 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [public ip] [local ip]</b>")
+if not is_valid_ip(params[0]) or not is_valid_ip(params[1]) then exit(get_name() + ": One or more IP address(es) is/are invalid.")
+
+mx = get_library("metaxploit.so", true)
+if not mx then exit
+lib = use_exploit(mx, params[0])
+if not lib then exit
+
+exploits = get_exploits(lib, params[1], null, true)
+if not exploits then exit(get_name() + ": Can't find vulnerabilities.")
+
+// Will show a log after this runs
+for exploit in exploits
+	address = exploit["address"]
+	print("<color=#00CC00>Address >=====[</color><b>" + address + "</b><color=#00CC00>]=====<</color>")
+	for value in exploit["values"]
+		if value["result"] == null then continue
+		
+		print("<color=#CC0000>Value >=====[</color><b>" + value["value"] + ":" + value["access"] + "@" + value["type"] + "</b><color=#CC0000>]=====<</color>")
+		
+		if value["type"] == "computer" or value["type"] == "file" then
+			file = get_passwd(value["result"])
+			if not file then exit(get_name() + ": Can't find passwd file.")
+			if not file.has_permission("r") then exit(get_name() + ": Permission denied.")
+			if file.is_binary then exit(get_name() + ": File was a binary.")
+			print(file.path + ":\n" + file.get_content)
+			exit("Program ended")
+		end if
+	end for
+end for
 
 @@@@@@@@@@
 
