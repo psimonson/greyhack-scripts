@@ -1,0 +1,49 @@
+// utils.src - Functions for useful utilities.
+
+// Function for probing a target machine.
+probe = function(address = null)
+	if not address then return print("Can't probe, no argument given or it's null.")
+	if not is_valid_ip(address) then return print("Can't probe IP address is invalid.")
+	
+	print_ports = function(ports = null)
+		if not ports then return print("Can't print nothing.")
+		if typeof(ports) != "list" then return print("Can't print not a list.")
+		if ports.len == 0 then return print("No ports found.")
+		
+		info = "\nPORT STATUS SERVICE VERSION LAN"
+		for port in ports
+			servinfo = router.port_info(port)
+			lan_ip = port.get_lan_ip
+			status = "open"
+			
+			if port.is_closed then
+				status = "closed"
+			end if
+			info = info + "\n" + port.port_number + " " + status + " " + servinfo + " " + lan_ip
+		end for
+		print(format_columns(info) + "\n")
+	end function
+	
+	if not get_shell.host_computer.is_network_active then exit("Can't probe no active network connection.")
+	
+	router = null
+	if is_lan_ip(address) then
+		router = get_router
+	else
+		router = get_router(address)
+	end if
+	if not router then return print("Can't get router or device.")
+	
+	ports = null
+	if not is_lan_ip(address) then
+		ports = router.used_ports
+	else
+		ports = router.device_ports(address)
+	end if
+	if not ports or typeof(ports) == "string" then return print("Can't get ports from device.")
+	if ports.len == 0 then return print("Scan finished. No active ports.")
+	
+	print_ports(ports)
+	return
+end function
+

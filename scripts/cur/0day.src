@@ -1,0 +1,68 @@
+// 0day.src - Copy payload to remote address.
+import_code("/home/5n4k3/src/helper.src")
+
+if params.len % 2 != 0 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [address port] [...]</b>")
+if not is_valid_ip(params[0]) then exit(get_name() + ": Invalid IP address given.")
+if params.len % 2 == 0 and params[1].to_int < 0 or params[1].to_int > 65535 then exit(get_name() + ": Invalid port given.")
+
+mx = get_library("metaxploit.so", true)
+if not mx then exit
+lib = null
+if params[1].to_int > 0 and params[1].to_int <= 65535 then
+	lib = use_exploit(mx, params[0], params[1].to_int)
+else
+	lib = use_exploit(mx, params[0])
+end if
+if not lib then exit
+
+exploits = null
+if params[1].to_int > 0 and params[1].to_int <= 65535 then
+	exploits = get_exploits(lib, params[0], params[1].to_int, true)
+else
+	exploits = get_exploits(lib, null, null, true)
+end if
+if not exploits then exit(get_name() + ": Can't find exploits.")
+
+result = null
+for exploit in exploits
+	memory = exploit["address"]
+	print(">---[<color=#AA0000><b>" + memory + "</b></color>]---<")
+	for value in exploit["values"]
+		print(value["value"] + " -> " + value["type"])
+		if value["type"] == "shell" then
+			result = value["result"]
+			if not result then continue
+			break
+		end if
+	end for
+	if result then break
+end for
+
+if not result then
+	print_error("Can't find shell.")
+	exit("Program ended")
+end if
+
+import_code("/home/5n4k3/src/shellhelp.src")
+
+filenames = ["metaxploit.so", "crypto.so", "routerpayload", "computerpayload", "0day"]
+replicate(result, filenames)
+
+if params[1].to_int == 0 then
+	args = []
+	i = 2
+	
+	while i < params.len
+		args.push(params[i] + " " + params[i+1])
+		i = i + 2
+	end while
+	if args.len == 0 then args.push(params[0] + " " + params[1])
+	
+	print("\nLaunching router payload on " + result.host_computer.local_ip + "...")
+	result.launch("/home/guest/routerpayload", args.join(" "))
+else
+	print("\nLaunching computer payload on " + result.host_computer.local_ip + "...")
+	result.launch("/home/guest/computerpayload", "")
+end if
+exit("Program ended")
+
