@@ -1298,7 +1298,7 @@ else if params.len == 1 and params[0] == "-r" then
 	do_shell(get_shell, true)
 else if params.len == 1 and params[0] == "-i" then
 	filenames = ["metaxploit.so", "crypto.so", get_name()]
-	options = ["Probe", "Remote Scan", "Launch Remote", "Cleanup"]
+	options = ["Probe", "Remote Scan", "Launch Remote", "Disable Firewall", "Cleanup"]
 	exploits = []
 	address = null
 	port = null
@@ -1339,8 +1339,8 @@ else if params.len == 1 and params[0] == "-i" then
 			end while
 			
 			// Ask for another port.
-			if input != null then
-			input = user_input("Do you want another port (y/n)? ")
+			if port != null then
+				input = user_input("Do you want another port (y/n)? ")
 				if input == "y" or input == "Y" then
 					port = null
 				end if
@@ -1392,7 +1392,11 @@ else if params.len == 1 and params[0] == "-i" then
 			// Replicate autohack to remote machine.
 			replicate(shell, filenames)
 			shell.launch("/home/guest/" + get_name(), "-c")
-		else if option == 4 then // Cleanup
+			done = true
+		else if option == 4 then // Disable firewall or change password
+			// TODO: Implement me :)
+			print("Not yet implemented!")
+		else if option == 5 then // Cleanup
 			input = user_input("Are you sure (y/n)? ")
 			if input == "y" or input == "Y" then
 				print("Cleaning up system...")
