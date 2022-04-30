@@ -1174,27 +1174,7 @@ end function
 probe = function(address = null)
 	if not address then return print("Can't probe, no argument given or it's null.")
 	if not is_valid_ip(address) then return print("Can't probe IP address is invalid.")
-	
-	print_ports = function(ports = null)
-		if not ports then return print("Can't print nothing.")
-		if typeof(ports) != "list" then return print("Can't print not a list.")
-		if ports.len == 0 then return print("No ports found.")
-		
-		info = "\nPORT STATUS SERVICE VERSION LAN"
-		for port in ports
-			servinfo = router.port_info(port)
-			lan_ip = port.get_lan_ip
-			status = "open"
-			
-			if port.is_closed then
-				status = "closed"
-			end if
-			info = info + "\n" + port.port_number + " " + status + " " + servinfo + " " + lan_ip
-		end for
-		print(format_columns(info) + "\n")
-	end function
-	
-	if not get_shell.host_computer.is_network_active then exit("Can't probe no active network connection.")
+	if not get_shell.host_computer.is_network_active then return print("Can't probe no active network connection.")
 	
 	router = null
 	if is_lan_ip(address) then
@@ -1202,7 +1182,7 @@ probe = function(address = null)
 	else
 		router = get_router(address)
 	end if
-	if not router then return print("Can't get router or device.")
+	if not router then return print("Can't get router from address.")
 	
 	ports = null
 	if not is_lan_ip(address) then
@@ -1213,8 +1193,18 @@ probe = function(address = null)
 	if not ports or typeof(ports) == "string" then return print("Can't get ports from device.")
 	if ports.len == 0 then return print("Scan finished. No active ports.")
 	
-	print_ports(ports)
-	return
+	info = "\nPORT STATUS SERVICE VERSION LAN"
+	for port in ports
+		servinfo = router.port_info(port)
+		lan_ip = port.get_lan_ip
+		status = "open"
+		
+		if port.is_closed then
+			status = "closed"
+		end if
+		info = info + "\n" + port.port_number + " " + status + " " + servinfo + " " + lan_ip
+	end for
+	print(format_columns(info) + "\n")
 end function
 
 @@@@@@@@@@
@@ -1394,8 +1384,39 @@ else if params.len == 1 and params[0] == "-i" then
 			shell.launch("/home/guest/" + get_name(), "-c")
 			done = true
 		else if option == 4 then // Disable firewall or change password
-			// TODO: Implement me :)
-			print("Not yet implemented!")
+			// Get address from user.
+			input = null
+			while (not input or input == "") and not is_valid_ip(input)
+				input = user_input("Enter IP address: ")
+			end while
+			
+			// Get all exploits.
+			mx = get_library("metaxploit.so", true)
+			if not mx then continue
+			lib = use_exploit(mx, input)
+			if not lib then continue
+			xploits = get_exploits(lib, input, null, true)
+			if not xploits then continue
+			
+			// Loop through exploits.
+			rc = 0
+			for exploit in xploits
+				for memory in exploit["address"]
+					for value in exploit["values"]
+						if value["type"] == "number" then
+							rc = lib.overflow(memory, value["value"])
+							if rc == 1 then break
+						end if
+					end for
+					if rc == 1 then break
+				end for
+				if rc == 1 then break
+			end for
+			if rc != 1 then
+				print(make_color("red", "Failed to disable firewall"))
+				continue
+			end if
+			print(make_color("green", "Success disabling firewall!"))
 		else if option == 5 then // Cleanup
 			input = user_input("Are you sure (y/n)? ")
 			if input == "y" or input == "Y" then
