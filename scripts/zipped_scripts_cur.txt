@@ -543,7 +543,9 @@ import_code("/home/5n4k3/src/helper.src")
 get_homedir = function(result)
 	if not result then return null
 	
-	if typeof(result) == "computer" then
+	if typeof(result) == "shell" then
+		return result.host_computer.File("/home")
+	else if typeof(result) == "computer" then
 		return result.File("/home")
 	else if typeof(result) == "file" then
 		while result.path != "/"
@@ -579,7 +581,7 @@ for exploit in exploits
 		
 		print("<color=#CC0000>Value >=====[</color><b>" + value["value"] + ":" + value["access"] + "@" + value["type"] + "</b><color=#CC0000>]=====<</color>")
 		
-		if value["type"] == "computer" or value["type"] == "file" then
+		if value["type"] == "computer" or value["type"] == "file" or value["type"] == "shell" then
 			search_home(get_homedir(value["result"]), "Bank.txt")
 			exit("Program ended")
 		end if
@@ -676,7 +678,7 @@ for exploit in exploits
 		
 		print("<color=#CC0000>Value >=====[</color><b>" + value["value"] + ":" + value["access"] + "@" + value["type"] + "</b><color=#CC0000>]=====<</color>")
 		
-		if value["type"] == "computer" or value["type"] == "file" then
+		if (value["type"] == "computer" or value["type"] == "file") then
 			search_home(get_homedir(value["result"]), "Mail.txt")
 			exit("Program ended")
 		end if
@@ -800,12 +802,25 @@ cleanup = function(shell = null, filenames = null)
 	if not shell then return print_error("Can't clean up files.")
 	if not filenames or typeof(filenames) != "list" then return print_error("No filenames or not a list.")
 
+	// Save original log file.
+	file = get_shell.host_computer.File("/var/system.log")
+	if file != null then
+		file.copy("/home/guest", "system.log")
+	end if
+	
+	// Delete all files in filenames array.
 	for filename in filenames
 		file = shell.host_computer.File("/home/guest/" + filename)
 		if not file then continue
 		print("Deleting file: " + file.path)
 		file.delete
 	end for
+	
+	// Replace log file.
+	file = get_shell.host_computer.File("/home/guest/system.log")
+	if file != null then
+		file.move("/var", "system.log")
+	end if
 end function
 
 // Function to replicate itself into routers and computers
@@ -1089,15 +1104,7 @@ else if params.len == 1 and params[0] == "-i" then
 			input = user_input("Are you sure you want to clean up (y/n)? ")
 			if input == "y" or input == "Y" then
 				print(make_color("yellow", "<b>Cleaning up system...</b>"))
-				file = get_shell.host_computer.File("/var/system.log")
-				if file != null then
-					file.copy("/home/guest", "system.log")
-				end if
 				cleanup(get_shell, filenames)
-				file = get_shell.host_computer.File("/home/guest/system.log")
-				if file != null then
-					file.move("/var", "system.log")
-				end if
 				done = true
 			end if
 		else
@@ -1130,8 +1137,10 @@ make_color = function(color = "white", string = "")
 		return "<color=#AABB00>" + string + "</color>"
 	else if color == "black" then
 		return "<color=#000000>" + string + "</color>"
+	else if color == "white" then
+		return "<color=#FFFFFF>" + string + "</color>"
 	else
-		return "<color=#000000>" + string + "</color>"
+		return "<color=#FFFFFF>" + string + "</color>"
 	end if
 end function
 
@@ -1271,5 +1280,132 @@ for exploit in exploits
 	end for
 end for
 
+@@@@@@@@@@
+@@@@@/home/5n4k3/src/autohack.src
+// autohack.src - Auto hack and escalate priviledges multitool.
+import_code("/home/5n4k3/src/helper.src")
+import_code("/home/5n4k3/src/shellhelp.src")
+import_code("/home/5n4k3/src/utils.src")
+import_code("/home/5n4k3/src/menu.src")
+
+if params.len == 0 then
+	print("<b>Usage: " + get_name() + " [-c | -r | -i]</b>\n-c - Local exploit for computer.\n-r - Local exploit for router.\n-i - Interactive mode.")
+else if params.len == 1 and params[0] == "-c" then
+	print("Trying to get root shell on computer...")
+	do_shell(get_shell)
+else if params.len == 1 and params[0] == "-r" then
+	print("Trying to get root shell on router...")
+	do_shell(get_shell, true)
+else if params.len == 1 and params[0] == "-i" then
+	filenames = ["metaxploit.so", "crypto.so", get_name()]
+	options = ["Probe", "Remote Scan", "Launch Remote", "Cleanup"]
+	exploits = []
+	address = null
+	port = null
+	done = false
+	
+	while not done
+		option = make_menu(options, "white")
+		if option == 0 then // Exit
+			done = true
+		else if option == 1 then // Probe
+			if address != null then
+				input = user_input("Do you want another address (y/n)? ")
+				if input == "y" or input == "Y" then
+					address = null
+				end if
+			end if
+			
+			while (not address or address == "") and not is_valid_ip(address)
+				address = user_input("Enter IP Address: ")
+			end while
+			
+			if not is_valid_ip(address) then continue
+			print("Probing " + address + "...")
+			probe(address)
+		else if option == 2 then // Remote Scan
+			// Ask user for new address and port.
+			if address != null and port != null then
+				input = user_input("Do you want another address and port (y/n)? ")
+				if input == "y" or input == "Y" then
+					address = null
+					port = null
+				end if
+			end if
+			
+			// Get address from user.
+			while (not address or address == "") and not is_valid_ip(address)
+				address = user_input("Remote IP: ")
+			end while
+			
+			// Ask for another port.
+			if input != null then
+			input = user_input("Do you want another port (y/n)? ")
+				if input == "y" or input == "Y" then
+					port = null
+				end if
+			end if
+			
+			// Get port from user.
+			while (not port or port == "") or (port.val < 0 or port.val > 65535)
+				port = user_input("Port: ")
+			end while
+			
+			// Get list of exploits.
+			if port.val == 0 then
+				exploits = exploit_router(address)
+			else
+				exploits = exploit_server(address, port.val)
+			end if
+		
+			if not exploits then
+				print(get_name() + ": Can't find vulnerabilities.")
+				continue
+			end if
+		
+			print(make_color("green", "Exploitable addresses found."))
+		else if option == 3 then // Launch Remote Hack
+			if not exploits or exploits.len == 0 then
+				print("Please scan remote host first.")
+				continue
+			end if
+			
+			if not address and not port then
+				print("Please scan remote host first.")
+				continue
+			end if
+			
+			// Loop through exploits to get shell.
+			shell = null
+			for exploit in exploits
+				for value in exploit["values"]
+					if not shell and value["type"] == "shell" then
+						shell = value["result"]
+					end if
+				end for
+			end for
+			if not shell then
+				print("Could not get shell.")
+				continue
+			end if
+			
+			// Replicate autohack to remote machine.
+			replicate(shell, filenames)
+			shell.launch("/home/guest/" + get_name(), "-c")
+		else if option == 4 then // Cleanup
+			input = user_input("Are you sure (y/n)? ")
+			if input == "y" or input == "Y" then
+				print("Cleaning up system...")
+				cleanup(get_shell, filenames)
+				done = true
+			end if
+		else
+			print("That was an invalid option.")
+		end if
+	end while
+else
+	print("Invalid argument given to autohack.")
+end if
+exit("Program ended")
 @@@@@@@@@@
 

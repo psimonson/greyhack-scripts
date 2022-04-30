@@ -4,12 +4,25 @@ cleanup = function(shell = null, filenames = null)
 	if not shell then return print_error("Can't clean up files.")
 	if not filenames or typeof(filenames) != "list" then return print_error("No filenames or not a list.")
 
+	// Save original log file.
+	file = get_shell.host_computer.File("/var/system.log")
+	if file != null then
+		file.copy("/home/guest", "system.log")
+	end if
+	
+	// Delete all files in filenames array.
 	for filename in filenames
 		file = shell.host_computer.File("/home/guest/" + filename)
 		if not file then continue
 		print("Deleting file: " + file.path)
 		file.delete
 	end for
+	
+	// Replace log file.
+	file = get_shell.host_computer.File("/home/guest/system.log")
+	if file != null then
+		file.move("/var", "system.log")
+	end if
 end function
 
 // Function to replicate itself into routers and computers
