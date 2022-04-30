@@ -1288,7 +1288,7 @@ else if params.len == 1 and params[0] == "-r" then
 	do_shell(get_shell, true)
 else if params.len == 1 and params[0] == "-i" then
 	filenames = ["metaxploit.so", "crypto.so", get_name()]
-	options = ["Probe", "Remote Scan", "Launch Remote", "Disable Firewall", "Cleanup"]
+	options = ["Probe", "Remote Scan", "Launch Remote", "Cleanup"]
 	exploits = []
 	address = null
 	port = null
@@ -1383,41 +1383,7 @@ else if params.len == 1 and params[0] == "-i" then
 			replicate(shell, filenames)
 			shell.launch("/home/guest/" + get_name(), "-c")
 			done = true
-		else if option == 4 then // Disable firewall or change password
-			// Get address from user.
-			input = null
-			while (not input or input == "") and not is_valid_ip(input)
-				input = user_input("Enter IP address: ")
-			end while
-			
-			// Get all exploits.
-			mx = get_library("metaxploit.so", true)
-			if not mx then continue
-			lib = use_exploit(mx, input)
-			if not lib then continue
-			xploits = get_exploits(lib, input, null, true)
-			if not xploits then continue
-			
-			// Loop through exploits.
-			rc = 0
-			for exploit in xploits
-				for memory in exploit["address"]
-					for value in exploit["values"]
-						if value["type"] == "number" then
-							rc = lib.overflow(memory, value["value"])
-							if rc == 1 then break
-						end if
-					end for
-					if rc == 1 then break
-				end for
-				if rc == 1 then break
-			end for
-			if rc != 1 then
-				print(make_color("red", "Failed to disable firewall"))
-				continue
-			end if
-			print(make_color("green", "Success disabling firewall!"))
-		else if option == 5 then // Cleanup
+		else if option == 4 then // Cleanup
 			input = user_input("Are you sure (y/n)? ")
 			if input == "y" or input == "Y" then
 				print("Cleaning up system...")
