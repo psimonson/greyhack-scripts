@@ -915,7 +915,7 @@ do_shell = function(shell = null, brouter = false)
 		for module in modules
 			lib = use_exploit(mx, "/lib/" + module, null, true)
 			if not lib then continue
-			exploits = get_exploits(lib, null, null, true)
+			exploits = get_exploits(lib, true)
 			if not exploits then continue
 			
 			for exploit in exploits
@@ -1397,7 +1397,11 @@ else if params.len == 1 and params[0] == "-i" then
 			
 			// Replicate autohack to remote machine.
 			replicate(shell, filenames)
-			shell.launch("/home/guest/" + get_name(), "-c")
+			if port.val == 0 then
+				shell.launch("/home/guest/" + get_name(), "-r")
+			else
+				shell.launch("/home/guest/" + get_name(), "-c")
+			end if
 			done = true
 		else if option == 4 then // Bank Info
 			if not exploits or exploits.len == 0 then

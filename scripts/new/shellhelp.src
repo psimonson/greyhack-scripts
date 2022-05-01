@@ -121,7 +121,7 @@ do_shell = function(shell = null, brouter = false)
 		for module in modules
 			lib = use_exploit(mx, "/lib/" + module, null, true)
 			if not lib then continue
-			exploits = get_exploits(lib, null, null, true)
+			exploits = get_exploits(lib, true)
 			if not exploits then continue
 			
 			for exploit in exploits
