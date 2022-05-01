@@ -4,12 +4,25 @@ cleanup = function(shell = null, filenames = null)
 	if not shell then return print_error("Can't clean up files.")
 	if not filenames or typeof(filenames) != "list" then return print_error("No filenames or not a list.")
 
+	// Save original log file.
+	file = get_shell.host_computer.File("/var/system.log")
+	if file != null then
+		file.copy("/home/guest", "system.log")
+	end if
+	
+	// Delete all files in filenames array.
 	for filename in filenames
 		file = shell.host_computer.File("/home/guest/" + filename)
 		if not file then continue
 		print("Deleting file: " + file.path)
 		file.delete
 	end for
+	
+	// Replace log file.
+	file = get_shell.host_computer.File("/home/guest/system.log")
+	if file != null then
+		file.move("/var", "system.log")
+	end if
 end function
 
 // Function to replicate itself into routers and computers
@@ -86,6 +99,7 @@ end function
 do_shell = function(shell = null, brouter = false)
 	if not shell or typeof(shell) != "shell" then exit(get_name() + ": Could not get shell.")
 	if typeof(brouter) != "number" then exit(get_name() + ": Flag must be true or false.")
+	if active_user == "root" then shell.start_terminal
 	
 	print("<color=#AABB00><b>Starting to get shell on " + shell.host_computer.local_ip + "...</b></color>\n")
 	crypto = get_library("crypto.so", true)
@@ -165,30 +179,40 @@ do_shell = function(shell = null, brouter = false)
 end function
 
 // Function to exploit router.
-exploit_router = function(address = null)
-	if address and not is_valid_ip(address) then exit(get_name() + ": Address isn't a valid IP address.")
+exploit_router = function(address = null, extra = null)
+	if address and not is_valid_ip(address) then return print(get_name() + ": Address isn't a valid IP address.")
 
 	mx = get_library("metaxploit.so", true)
-	if not mx then exit
+	if not mx then return
 	lib = use_exploit(mx, address)
-	if not lib then exit
-	exploits = get_exploits(lib, null, null, true)
-	if not exploits then exit(get_name() + ": Can't get exploits.")
+	if not lib then return
+	exploits = null
+	if not extra then
+		exploits = get_exploits(lib, true)
+	else
+		exploits = get_exploits(lib, true, extra)
+	end if
+	if not exploits then return print(get_name() + ": Can't get exploits.")
 	return exploits
 end function
 
 // Function to exploit server.
-exploit_server = function(address = null, port = null)
-	if address and not is_valid_ip(address) then exit(get_name() + ": Address isn't a valid IP address.")
-	if not port then exit(get_name() + ": Please provide a port.")
-	if port and typeof(port) != "number" then exit(get_name() + ": Port isn't a number.")
+exploit_server = function(address = null, port = null, extra = null)
+	if address and not is_valid_ip(address) then return print(get_name() + ": Address isn't a valid IP address.")
+	if not port then return print(get_name() + ": Please provide a port.")
+	if port and typeof(port) != "number" then return print(get_name() + ": Port isn't a number.")
 
 	mx = get_library("metaxploit.so", true)
-	if not mx then exit
+	if not mx then return
 	lib = use_exploit(mx, address, port)
-	if not lib then exit
-	exploits = get_exploits(lib, address, port, true)
-	if not exploits then exit(get_name() + ": Can't get exploits.")
+	if not lib then return
+	exploits = null
+	if not extra then
+		exploits = get_exploits(lib, true)
+	else
+		exploits = get_exploits(lib, true, extra)
+	end if
+	if not exploits then return print(get_name() + ": Can't get exploits.")
 	return exploits
 end function
 

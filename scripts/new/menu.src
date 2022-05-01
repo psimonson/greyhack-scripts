@@ -17,8 +17,10 @@ make_color = function(color = "white", string = "")
 		return "<color=#AABB00>" + string + "</color>"
 	else if color == "black" then
 		return "<color=#000000>" + string + "</color>"
+	else if color == "white" then
+		return "<color=#FFFFFF>" + string + "</color>"
 	else
-		return "<color=#000000>" + string + "</color>"
+		return "<color=#FFFFFF>" + string + "</color>"
 	end if
 end function
 

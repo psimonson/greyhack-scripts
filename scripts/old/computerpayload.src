@@ -17,7 +17,6 @@ for module in modules
 	lib = use_exploit(mx, "/lib/" + module, null, true)
 	if not lib then continue
 
-	print("Getting all available exploits on target...")
 	exploits = get_exploits(lib, null, null, true)
 	if not exploits then continue
 
@@ -25,6 +24,7 @@ for module in modules
 		memory = exploit["address"]
 		print(">---[<color=#AA0000><b>" + memory + "</b></color>]---<")
 		for value in exploit["values"]
+			if not value then continue
 			if result and passwd then break
 		
 			print(value["value"] + " -> " + value["type"])

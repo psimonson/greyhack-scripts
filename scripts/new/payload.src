@@ -41,15 +41,7 @@ else if params.len == 1 and params[0] == "-i" then
 			input = user_input("Are you sure you want to clean up (y/n)? ")
 			if input == "y" or input == "Y" then
 				print(make_color("yellow", "<b>Cleaning up system...</b>"))
-				file = get_shell.host_computer.File("/var/system.log")
-				if file != null then
-					file.copy("/home/guest", "system.log")
-				end if
 				cleanup(get_shell, filenames)
-				file = get_shell.host_computer.File("/home/guest/system.log")
-				if file != null then
-					file.move("/var", "system.log")
-				end if
 				done = true
 			end if
 		else

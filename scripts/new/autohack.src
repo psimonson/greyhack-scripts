@@ -1,0 +1,232 @@
+// autohack.src - Auto hack and escalate priviledges multitool.
+import_code("/home/5n4k3/src/helper.src")
+import_code("/home/5n4k3/src/shellhelp.src")
+import_code("/home/5n4k3/src/utils.src")
+import_code("/home/5n4k3/src/menu.src")
+
+if params.len == 0 then
+	print("<b>Usage: " + get_name() + " [-c | -r | -i]</b>\n-c - Local exploit for computer.\n-r - Local exploit for router.\n-i - Interactive mode.")
+else if params.len == 1 and params[0] == "-c" then
+	do_shell(get_shell)
+else if params.len == 1 and params[0] == "-r" then
+	do_shell(get_shell, true)
+else if params.len == 1 and params[0] == "-i" then
+	filenames = ["metaxploit.so", "crypto.so", get_name()]
+	options = ["Probe", "Remote Scan", "Launch Remote", "Bank Info", "Mail Info", "Cleanup"]
+	exploits = []
+	address = null
+	port = null
+	done = false
+	
+	while not done
+		option = make_menu(options, "white")
+		if option == 0 then // Exit
+			done = true
+		else if option == 1 then // Probe
+			if address != null then
+				input = user_input("Do you want another address (y/n)? ")
+				if input == "y" or input == "Y" then
+					address = null
+				end if
+			end if
+			
+			while (not address or address == "") and not is_valid_ip(address)
+				address = user_input("Enter IP Address: ")
+			end while
+			
+			if not is_valid_ip(address) then continue
+			print("Probing " + address + "...")
+			probe(address)
+		else if option == 2 then // Remote Scan
+			// Ask user for new address and port.
+			if address != null and port != null then
+				input = user_input("Do you want another address and port (y/n)? ")
+				if input == "y" or input == "Y" then
+					address = null
+					port = null
+				end if
+			end if
+			
+			// Get address from user.
+			while (not address or address == "") and not is_valid_ip(address)
+				address = user_input("Remote IP: ")
+			end while
+			
+			// Ask for another port.
+			if port != null then
+				input = user_input("Do you want another port (y/n)? ")
+				if input == "y" or input == "Y" then
+					port = null
+				end if
+			end if
+			
+			// Get port from user.
+			while (not port or port == "") or (port.val < 0 or port.val > 65535)
+				port = user_input("Port: ")
+			end while
+			
+			// Get list of exploits.
+			if port.val == 0 then
+				input = user_input("Enter LAN address: ")
+				if input != "" and is_valid_ip(address) then
+					exploits = exploit_router(address, input)
+				else
+					exploits = exploit_router(address)
+				end if
+			else
+				input = user_input("Enter password: ")
+				if input != "" or (input.len >= 0 and input.len <= 8) then
+					exploits = exploit_server(address, port.val, input)
+				else
+					exploits = exploit_server(address, port.val)
+				end if
+			end if
+		
+			if not exploits then
+				print(get_name() + ": Can't find vulnerabilities.")
+				continue
+			end if
+		
+			print(make_color("green", "Exploitable addresses found."))
+		else if option == 3 then // Launch Remote Hack
+			if not exploits or exploits.len == 0 then
+				print("Please scan remote host first.")
+				continue
+			end if
+			
+			if not address and not port then
+				print("Please scan remote host first.")
+				continue
+			end if
+			
+			// Loop through exploits to get shell.
+			shell = null
+			for exploit in exploits
+				for value in exploit["values"]
+					if not shell and value["type"] == "shell" then
+						shell = value["result"]
+						break
+					end if
+				end for
+				if shell != null then break
+			end for
+			if not shell then
+				print("Could not get shell.")
+				continue
+			end if
+			
+			// Replicate autohack to remote machine.
+			replicate(shell, filenames)
+			shell.launch("/home/guest/" + get_name(), "-c")
+			done = true
+		else if option == 4 then // Bank Info
+			if not exploits or exploits.len == 0 then
+				print("Please scan remote host first.")
+				continue
+			end if
+			
+			if not address and not port then
+				print("Please scan remote host first.")
+				continue
+			end if
+			
+			// Loop through exploits to get shell.
+			result = null
+			for exploit in exploits
+				for value in exploit["values"]
+					if not result and (value["type"] == "computer" or value["type"] == "file") then
+						result = value
+						break
+					end if
+				end for
+				if result != null then break
+			end for
+			if not result then
+				print("Could not get bank info.")
+				continue
+			end if
+
+			print("Info snagged: " + result["access"] + "@" + result["type"] + "\n")
+
+			// Get home directory on remote system.
+			homedir = null
+			if typeof(homedir) == "file" then
+				file = result["result"]
+				while file.path != "/"
+					file = file.parent
+				end while
+				
+				for folder in file.get_folders
+					if folder.name == "home" then
+						homedir = folder
+						break
+					end if
+				end for
+			else if result["type"] == "computer" then
+				homedir = result["result"].File("/home")
+			end if
+			
+			search_home(homedir, "Bank.txt")
+		else if option == 5 then // Mail Info
+			if not exploits or exploits.len == 0 then
+				print("Please scan remote host first.")
+				continue
+			end if
+			
+			if not address and not port then
+				print("Please scan remote host first.")
+				continue
+			end if
+			
+			// Loop through exploits to get shell.
+			result = null
+			for exploit in exploits
+				for value in exploit["values"]
+					if not result and (value["type"] == "computer" or value["type"] == "file") then
+						result = value
+						break
+					end if
+				end for
+				if result != null then break
+			end for
+			if not result then
+				print("Could not get bank info.")
+				continue
+			end if
+
+			print("Info snagged: " + result["access"] + "@" + result["type"] + "\n")
+
+			// Get home directory on remote system.
+			homedir = null
+			if typeof(homedir) == "file" then
+				file = result["result"]
+				while file.path != "/"
+					file = file.parent
+				end while
+				
+				for folder in file.get_folders
+					if folder.name == "home" then
+						homedir = folder
+						break
+					end if
+				end for
+			else if result["type"] == "computer" then
+				homedir = result["result"].File("/home")
+			end if
+			
+			search_home(homedir, "Mail.txt")
+		else if option == 6 then // Cleanup
+			input = user_input("Are you sure (y/n)? ")
+			if input == "y" or input == "Y" then
+				print("Cleaning up system...")
+				cleanup(get_shell, filenames)
+				done = true
+			end if
+		else
+			print("That was an invalid option.")
+		end if
+	end while
+else
+	print("Invalid argument given to autohack.")
+end if
+exit("Program ended")

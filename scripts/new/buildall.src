@@ -1,0 +1,26 @@
+// buildall.src - Build this and run to compile all sources.
+computer = get_shell.host_computer
+folder = computer.File(home_dir + "/exploits")
+if not folder then
+	computer.create_folder(home_dir, "exploits")
+end if
+
+bin_src = ["decrypt", "wifihack", "zip"]
+exploit_src = ["autohack"]
+virii_src = ["viruswipe"]
+dirs = ["/bin", home_dir + "/exploits", home_dir + "/virii"]
+
+print("Building all sources...")
+for src in bin_src
+	get_shell.build(home_dir + "/src/" + src, dirs[0])
+end for
+
+for src in exploit_src
+	get_shell.build(home_dir + "/src/" + src, dirs[1])
+end for
+
+for src in virii_src
+	get_shell.build(home_dir + "/src/" + src, dirs[2])
+end for
+print("Done!")
+exit("Program ended")

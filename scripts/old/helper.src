@@ -126,7 +126,6 @@ get_accesstype = function(result)
 	if not result then return null
 	if typeof(result) == "shell" then
 		file = result.host_computer.File("/etc/passwd")
-		if not file then return "unknown"
 		if file.has_permission("r") then
 			otherfile = result.host_computer.File("/root")
 			if not otherfile then return null
@@ -140,7 +139,6 @@ get_accesstype = function(result)
 		end if
 	else if typeof(result) == "computer" then
 		file = result.File("/etc/passwd")
-		if not file then return "unknown"
 		if file.has_permission("r") then
 			otherfile = result.File("/root")
 			if not otherfile then return "unknown"
@@ -152,6 +150,29 @@ get_accesstype = function(result)
 		else
 			return "guest"
 		end if
+	else if typeof(result) == "file" then
+		file = result
+		while file.path != "/"
+			file = file.parent
+		end while
+		
+		for folder in file.get_folders
+			if folder.name == "etc" then
+				for file in folder.get_files
+					if file.name == "passwd" then
+						if not file.has_permission("r") then
+							return "guest"
+						end if
+					end if
+				end for
+			else if folder.name == "root" then
+				if folder.has_permission("r") then
+					return "root"
+				else
+					return "user"
+				end if
+			end if
+		end for
 	end if
 	return "unknown"
 end function

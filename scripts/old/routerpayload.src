@@ -1,9 +1,9 @@
 // routerpayload.src - Get root shell and start it.
 import_code("/home/5n4k3/src/helper.src")
 
-if (params.len % 2) != 0 then exit("<b>Usage: " + get_name() + " [address] [port] [...]</b>")
+if params.len % 2 != 0 then exit("<b>Usage: " + get_name() + " [address] [port] [...]</b>")
 if not is_valid_ip(params[0]) then exit(get_name() + ": Invalid IP given.")
-if (params.len % 2) != 0 and params[1].to_int < 0 or params[1].to_int > 65535 then exit(get_name() + ": Invalid port given.")
+if params.len % 2 == 0 and params[1].to_int < 0 or params[1].to_int > 65535 then exit(get_name() + ": Invalid port given.")
 
 mx = get_library("metaxploit.so", true)
 if not mx then exit
@@ -12,7 +12,6 @@ if not crypto then exit
 lib = use_exploit(mx, params[0], params[1].to_int)
 if not lib then exit
 
-print("Trying to exploit target [<color=#BB0000><b>" + params[0] + ":" + params[1] + "</b></color>]...")
 exploits = get_exploits(lib, params[0], params[1].to_int, true)
 if not exploits then exit(get_name() + ": Can't find exploits.")
 
@@ -23,6 +22,7 @@ for exploit in exploits
 	memory = exploit["address"]
 	print(">---[<color=#AA0000><b>" + memory + "</b></color>]---<")
 	for value in exploit["values"]
+		if not value then continue
 		if result and passwd then break
 		
 		print(value["value"] + " -> " + value["type"])
