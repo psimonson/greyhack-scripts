@@ -791,6 +791,7 @@ replicate = function(remote_shell = null, filenames = null)
 		print("Setting owner and group for " + file.path + ".")
 		file.set_owner("guest", 0)
 		file.set_group("guest", 0)
+		file.chmod("u+rwx,g+rwx,o+rwx", 0)
 	end for
 end function
 
