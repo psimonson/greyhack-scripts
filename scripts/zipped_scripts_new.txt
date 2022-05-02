@@ -376,31 +376,34 @@ end function
 // Function to check for access type
 get_accesstype = function(result)
 	if not result then return null
+	access = "unknown"
 	if typeof(result) == "shell" then
 		file = result.host_computer.File("/etc/passwd")
+		if not file then return access
 		if file.has_permission("r") then
 			otherfile = result.host_computer.File("/root")
-			if not otherfile then return null
+			if not otherfile then return access
 			if file.has_permission("rwx") then
-				return "root"
+				access = "root"
 			else
-				return "user"
+				access = "user"
 			end if
 		else
-			return "guest"
+			access = "guest"
 		end if
 	else if typeof(result) == "computer" then
 		file = result.File("/etc/passwd")
+		if not file then return access
 		if file.has_permission("r") then
 			otherfile = result.File("/root")
 			if not otherfile then return "unknown"
 			if file.has_permission("rwx") then
-				return "root"
+				access = "root"
 			else
-				return "user"
+				access = "user"
 			end if
 		else
-			return "guest"
+			access = "guest"
 		end if
 	else if typeof(result) == "file" then
 		file = result
@@ -412,21 +415,23 @@ get_accesstype = function(result)
 			if folder.name == "etc" then
 				for file in folder.get_files
 					if file.name == "passwd" then
-						if not file.has_permission("r") then
-							return "guest"
+						if not file then return access
+						if file.has_permission("r") then
+							access = "guest"
 						end if
 					end if
 				end for
 			else if folder.name == "root" then
-				if folder.has_permission("r") then
-					return "root"
+				if not folder then return access
+				if folder.has_permission("rwx") then
+					access = "root"
 				else
-					return "user"
+					access = "user"
 				end if
 			end if
 		end for
 	end if
-	return "unknown"
+	return access
 end function
 
 // Function scan for all exploits on remote system
