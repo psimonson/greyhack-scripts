@@ -150,27 +150,8 @@ else if params.len == 1 and params[0] == "-i" then
 				continue
 			end if
 
-			print("Info snagged: " + result["access"] + "@" + result["type"] + "\n")
-
-			// Get home directory on remote system.
-			homedir = null
-			if typeof(homedir) == "file" then
-				file = result["result"]
-				while file.path != "/"
-					file = file.parent
-				end while
-				
-				for folder in file.get_folders
-					if folder.name == "home" then
-						homedir = folder
-						break
-					end if
-				end for
-			else if result["type"] == "computer" then
-				homedir = result["result"].File("/home")
-			end if
-			
-			search_home(homedir, "Bank.txt")
+			print("Info snagged: " + result["access"] + "@" + result["type"])
+			search_home(result["result"], "Bank.txt")
 		else if option == 5 then // Mail Info
 			if not exploits or exploits.len == 0 then
 				print("Please scan remote host first.")
@@ -198,27 +179,8 @@ else if params.len == 1 and params[0] == "-i" then
 				continue
 			end if
 
-			print("Info snagged: " + result["access"] + "@" + result["type"] + "\n")
-
-			// Get home directory on remote system.
-			homedir = null
-			if typeof(homedir) == "file" then
-				file = result["result"]
-				while file.path != "/"
-					file = file.parent
-				end while
-				
-				for folder in file.get_folders
-					if folder.name == "home" then
-						homedir = folder
-						break
-					end if
-				end for
-			else if result["type"] == "computer" then
-				homedir = result["result"].File("/home")
-			end if
-			
-			search_home(homedir, "Mail.txt")
+			print("Info snagged: " + result["access"] + "@" + result["type"])
+			search_home(result["result"], "Mail.txt")
 		else if option == 6 then // Cleanup
 			input = user_input("Are you sure (y/n)? ")
 			if input == "y" or input == "Y" then

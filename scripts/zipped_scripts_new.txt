@@ -272,37 +272,35 @@ end function
 
 // Function search the home directory
 search_home = function(result, user_file)
+	home_folder = null
 	if typeof(result) == "file" then
 		while not result.path == "/"
 			result = result.parent
 		end while
 		
 		// Get user home directory
-		folders = result.get_folders
-		for folder in folders
-			if folder.name == "home" then
+		for folder in result.get_folders
+			if folder.name == "home" and folder.is_folder then
 				home_folder = folder
 				break
 			end if
 		end for
-		if not home_folder then exit("Error: Can't access home dir.")
 	else if typeof(result) == "computer" then
 		home_folder = result.File("/home")
-		if not home_folder then exit("Error: Can't access home dir.")
 	else if typeof(result) == "shell" then
 		home_folder = result.host_computer.File("/home")
-		if not home_folder then exit("Error: Can't access home dir.")
 	end if
+	if not home_folder then return print("Error: Can't access home dir.")
 	
 	bank_info = []
 	print("Accessing to " + user_file + " files...")
 	folders = home_folder.get_folders
-	for user in folders
-		print("User: " + user.name + " found...")
-		sub_folders = user.get_folders
+	for folder in folders
 		file_found = false
-		for sub_folder in sub_folders
-			if sub_folder.name == "Config" then
+
+		print("User: " + folder.name + " found...")
+		for sub_folder in folder.get_folders
+			if sub_folder.name == "Config" and sub_folder.is_folder then
 				files = sub_folder.get_files
 				for file in files
 					if file.name == user_file then
@@ -535,28 +533,6 @@ end if
 // routerbank.src - Hack router remotely to retrieve all bank info computers.
 import_code("/home/5n4k3/src/helper.src")
 
-// Function to get home directory file
-get_homedir = function(result)
-	if not result then return null
-	
-	if typeof(result) == "shell" then
-		return result.host_computer.File("/home")
-	else if typeof(result) == "computer" then
-		return result.File("/home")
-	else if typeof(result) == "file" then
-		while result.path != "/"
-			result = result.parent
-		end while
-		
-		for folder in result.get_folders
-			if folder.name == "home" then
-				return folder
-			end if
-		end for
-	end if
-	return null
-end function
-
 if params.len != 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [public ip] [local ip]</b>")
 if not is_valid_ip(params[0]) or not is_valid_ip(params[1]) then exit(get_name() + ": One or more IP address(es) is/are invalid.")
 
@@ -578,7 +554,7 @@ for exploit in exploits
 		print("<color=#CC0000>Value >=====[</color><b>" + value["value"] + ":" + value["access"] + "@" + value["type"] + "</b><color=#CC0000>]=====<</color>")
 		
 		if value["type"] == "computer" or value["type"] == "file" or value["type"] == "shell" then
-			search_home(get_homedir(value["result"]), "Bank.txt")
+			search_home(value["result"], "Bank.txt")
 			exit("Program ended")
 		end if
 	end for
@@ -634,26 +610,6 @@ end for
 // routermail.src - Hack router remotely to retrieve all mail info computers.
 import_code("/home/5n4k3/src/helper.src")
 
-// Function to get home directory file
-get_homedir = function(result)
-	if not result then return null
-	
-	if typeof(result) == "computer" then
-		return result.File("/home")
-	else if typeof(result) == "file" then
-		while result.path != "/"
-			result = result.parent
-		end while
-		
-		for folder in result.get_folders
-			if folder.name == "home" then
-				return folder
-			end if
-		end for
-	end if
-	return null
-end function
-
 if params.len != 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [public ip] [local ip]</b>")
 if not is_valid_ip(params[0]) or not is_valid_ip(params[1]) then exit(get_name() + ": One or more IP address(es) is/are invalid.")
 
@@ -675,7 +631,7 @@ for exploit in exploits
 		print("<color=#CC0000>Value >=====[</color><b>" + value["value"] + ":" + value["access"] + "@" + value["type"] + "</b><color=#CC0000>]=====<</color>")
 		
 		if (value["type"] == "computer" or value["type"] == "file") then
-			search_home(get_homedir(value["result"]), "Mail.txt")
+			search_home(value["result"], "Mail.txt")
 			exit("Program ended")
 		end if
 	end for
@@ -1430,27 +1386,8 @@ else if params.len == 1 and params[0] == "-i" then
 				continue
 			end if
 
-			print("Info snagged: " + result["access"] + "@" + result["type"] + "\n")
-
-			// Get home directory on remote system.
-			homedir = null
-			if typeof(homedir) == "file" then
-				file = result["result"]
-				while file.path != "/"
-					file = file.parent
-				end while
-				
-				for folder in file.get_folders
-					if folder.name == "home" then
-						homedir = folder
-						break
-					end if
-				end for
-			else if result["type"] == "computer" then
-				homedir = result["result"].File("/home")
-			end if
-			
-			search_home(homedir, "Bank.txt")
+			print("Info snagged: " + result["access"] + "@" + result["type"])
+			search_home(result["result"], "Bank.txt")
 		else if option == 5 then // Mail Info
 			if not exploits or exploits.len == 0 then
 				print("Please scan remote host first.")
@@ -1478,27 +1415,8 @@ else if params.len == 1 and params[0] == "-i" then
 				continue
 			end if
 
-			print("Info snagged: " + result["access"] + "@" + result["type"] + "\n")
-
-			// Get home directory on remote system.
-			homedir = null
-			if typeof(homedir) == "file" then
-				file = result["result"]
-				while file.path != "/"
-					file = file.parent
-				end while
-				
-				for folder in file.get_folders
-					if folder.name == "home" then
-						homedir = folder
-						break
-					end if
-				end for
-			else if result["type"] == "computer" then
-				homedir = result["result"].File("/home")
-			end if
-			
-			search_home(homedir, "Mail.txt")
+			print("Info snagged: " + result["access"] + "@" + result["type"])
+			search_home(result["result"], "Mail.txt")
 		else if option == 6 then // Cleanup
 			input = user_input("Are you sure (y/n)? ")
 			if input == "y" or input == "Y" then

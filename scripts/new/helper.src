@@ -18,37 +18,35 @@ end function
 
 // Function search the home directory
 search_home = function(result, user_file)
+	home_folder = null
 	if typeof(result) == "file" then
 		while not result.path == "/"
 			result = result.parent
 		end while
 		
 		// Get user home directory
-		folders = result.get_folders
-		for folder in folders
-			if folder.name == "home" then
+		for folder in result.get_folders
+			if folder.name == "home" and folder.is_folder then
 				home_folder = folder
 				break
 			end if
 		end for
-		if not home_folder then exit("Error: Can't access home dir.")
 	else if typeof(result) == "computer" then
 		home_folder = result.File("/home")
-		if not home_folder then exit("Error: Can't access home dir.")
 	else if typeof(result) == "shell" then
 		home_folder = result.host_computer.File("/home")
-		if not home_folder then exit("Error: Can't access home dir.")
 	end if
+	if not home_folder then return print("Error: Can't access home dir.")
 	
 	bank_info = []
 	print("Accessing to " + user_file + " files...")
 	folders = home_folder.get_folders
-	for user in folders
-		print("User: " + user.name + " found...")
-		sub_folders = user.get_folders
+	for folder in folders
 		file_found = false
-		for sub_folder in sub_folders
-			if sub_folder.name == "Config" then
+
+		print("User: " + folder.name + " found...")
+		for sub_folder in folder.get_folders
+			if sub_folder.name == "Config" and sub_folder.is_folder then
 				files = sub_folder.get_files
 				for file in files
 					if file.name == user_file then
