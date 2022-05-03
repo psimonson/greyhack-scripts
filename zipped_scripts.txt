@@ -442,6 +442,7 @@ get_accesstype = function(result)
 			return "guest"
 		end if
 	end if
+	return "unknown"
 end function
 
 // Function scan for all exploits on remote system
