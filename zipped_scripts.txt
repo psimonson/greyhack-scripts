@@ -272,37 +272,35 @@ end function
 
 // Function search the home directory
 search_home = function(result, user_file)
+	home_folder = null
 	if typeof(result) == "file" then
 		while not result.path == "/"
 			result = result.parent
 		end while
 		
 		// Get user home directory
-		folders = result.get_folders
-		for folder in folders
-			if folder.name == "home" then
+		for folder in result.get_folders
+			if folder.name == "home" and folder.is_folder then
 				home_folder = folder
 				break
 			end if
 		end for
-		if not home_folder then exit("Error: Can't access home dir.")
 	else if typeof(result) == "computer" then
 		home_folder = result.File("/home")
-		if not home_folder then exit("Error: Can't access home dir.")
 	else if typeof(result) == "shell" then
 		home_folder = result.host_computer.File("/home")
-		if not home_folder then exit("Error: Can't access home dir.")
 	end if
+	if not home_folder then return print("Error: Can't access home dir.")
 	
 	bank_info = []
 	print("Accessing to " + user_file + " files...")
 	folders = home_folder.get_folders
-	for user in folders
-		print("User: " + user.name + " found...")
-		sub_folders = user.get_folders
+	for folder in folders
 		file_found = false
-		for sub_folder in sub_folders
-			if sub_folder.name == "Config" then
+
+		print("User: " + folder.name + " found...")
+		for sub_folder in folder.get_folders
+			if sub_folder.name == "Config" and sub_folder.is_folder then
 				files = sub_folder.get_files
 				for file in files
 					if file.name == user_file then
@@ -380,10 +378,11 @@ get_accesstype = function(result)
 	if not result then return null
 	if typeof(result) == "shell" then
 		file = result.host_computer.File("/etc/passwd")
+		if not file then return "unknown"
 		if file.has_permission("r") then
 			otherfile = result.host_computer.File("/root")
-			if not otherfile then return null
-			if file.has_permission("rwx") then
+			if not otherfile then return "unknown"
+			if otherfile.has_permission("rwx") then
 				return "root"
 			else
 				return "user"
@@ -393,10 +392,11 @@ get_accesstype = function(result)
 		end if
 	else if typeof(result) == "computer" then
 		file = result.File("/etc/passwd")
+		if not file then return "unknown"
 		if file.has_permission("r") then
 			otherfile = result.File("/root")
 			if not otherfile then return "unknown"
-			if file.has_permission("rwx") then
+			if otherfile.has_permission("rwx") then
 				return "root"
 			else
 				return "user"
@@ -410,29 +410,42 @@ get_accesstype = function(result)
 			file = file.parent
 		end while
 		
+		passwd = null
+		rootdir = null
 		for folder in file.get_folders
+			if rootdir != null and passwd != null then break
+			
 			if folder.name == "etc" then
 				for file in folder.get_files
 					if file.name == "passwd" then
-						if not file.has_permission("r") then
-							return "guest"
+						if not passwd and file.has_permission("r") then
+							passwd = file
 						end if
 					end if
 				end for
 			else if folder.name == "root" then
-				if folder.has_permission("r") then
-					return "root"
-				else
-					return "user"
+				if not rootdir and folder.has_permission("r") then
+					rootdir = folder
 				end if
 			end if
 		end for
+		
+		// Check for user of file.
+		if not passwd or not rootdir then return "unknown"
+		if passwd.has_permission("r") then
+			if rootdir.has_permission("rwx") then
+				return "root"
+			else
+				return "user"
+			end if
+		else
+			return "guest"
+		end if
 	end if
-	return "unknown"
 end function
 
 // Function scan for all exploits on remote system
-get_exploits = function(lib, address = null, port = null, use_types = false, password = null)
+get_exploits = function(lib, use_types = false, extra = null)
 	// Build a map of all exploits
 	mem_map = []
 	print("Scanning for exploits: [<color=#00DD00>" + lib.lib_name + ":" + lib.version + "</color>]\n")
@@ -449,14 +462,10 @@ get_exploits = function(lib, address = null, port = null, use_types = false, pas
 			
 			if use_types then
 				type = null
-				if address and is_valid_ip(address) then
-					type = lib.overflow(mem, value, address)
+				if extra then
+					type = lib.overflow(mem, value, extra)
 				else
-					if password then
-						type = lib.overflow(mem, value, password)
-					else
-						type = lib.overflow(mem, value)
-					end if
+					type = lib.overflow(mem, value)
 				end if
 				if not type then continue
 				
@@ -539,28 +548,6 @@ end if
 // routerbank.src - Hack router remotely to retrieve all bank info computers.
 import_code("/home/5n4k3/src/helper.src")
 
-// Function to get home directory file
-get_homedir = function(result)
-	if not result then return null
-	
-	if typeof(result) == "shell" then
-		return result.host_computer.File("/home")
-	else if typeof(result) == "computer" then
-		return result.File("/home")
-	else if typeof(result) == "file" then
-		while result.path != "/"
-			result = result.parent
-		end while
-		
-		for folder in result.get_folders
-			if folder.name == "home" then
-				return folder
-			end if
-		end for
-	end if
-	return null
-end function
-
 if params.len != 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [public ip] [local ip]</b>")
 if not is_valid_ip(params[0]) or not is_valid_ip(params[1]) then exit(get_name() + ": One or more IP address(es) is/are invalid.")
 
@@ -569,7 +556,7 @@ if not mx then exit
 lib = use_exploit(mx, params[0])
 if not lib then exit
 
-exploits = get_exploits(lib, params[1], null, true)
+exploits = get_exploits(lib, true, params[1])
 if not exploits then exit(get_name() + ": Can't find vulnerabilities.")
 
 // Will show a log after this runs
@@ -582,7 +569,7 @@ for exploit in exploits
 		print("<color=#CC0000>Value >=====[</color><b>" + value["value"] + ":" + value["access"] + "@" + value["type"] + "</b><color=#CC0000>]=====<</color>")
 		
 		if value["type"] == "computer" or value["type"] == "file" or value["type"] == "shell" then
-			search_home(get_homedir(value["result"]), "Bank.txt")
+			search_home(value["result"], "Bank.txt")
 			exit("Program ended")
 		end if
 	end for
@@ -638,26 +625,6 @@ end for
 // routermail.src - Hack router remotely to retrieve all mail info computers.
 import_code("/home/5n4k3/src/helper.src")
 
-// Function to get home directory file
-get_homedir = function(result)
-	if not result then return null
-	
-	if typeof(result) == "computer" then
-		return result.File("/home")
-	else if typeof(result) == "file" then
-		while result.path != "/"
-			result = result.parent
-		end while
-		
-		for folder in result.get_folders
-			if folder.name == "home" then
-				return folder
-			end if
-		end for
-	end if
-	return null
-end function
-
 if params.len != 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [public ip] [local ip]</b>")
 if not is_valid_ip(params[0]) or not is_valid_ip(params[1]) then exit(get_name() + ": One or more IP address(es) is/are invalid.")
 
@@ -666,7 +633,7 @@ if not mx then exit
 lib = use_exploit(mx, params[0])
 if not lib then exit
 
-exploits = get_exploits(lib, params[1], null, true)
+exploits = get_exploits(lib, true, params[1])
 if not exploits then exit(get_name() + ": Can't find vulnerabilities.")
 
 // Will show a log after this runs
@@ -679,7 +646,7 @@ for exploit in exploits
 		print("<color=#CC0000>Value >=====[</color><b>" + value["value"] + ":" + value["access"] + "@" + value["type"] + "</b><color=#CC0000>]=====<</color>")
 		
 		if (value["type"] == "computer" or value["type"] == "file") then
-			search_home(get_homedir(value["result"]), "Mail.txt")
+			search_home(value["result"], "Mail.txt")
 			exit("Program ended")
 		end if
 	end for
@@ -839,6 +806,7 @@ replicate = function(remote_shell = null, filenames = null)
 		print("Setting owner and group for " + file.path + ".")
 		file.set_owner("guest", 0)
 		file.set_group("guest", 0)
+		file.chmod("u+rwx,g+rwx,o+rwx", 0)
 	end for
 end function
 
@@ -919,7 +887,7 @@ do_shell = function(shell = null, brouter = false)
 		for module in modules
 			lib = use_exploit(mx, "/lib/" + module, null, true)
 			if not lib then continue
-			exploits = get_exploits(lib, null, null, true)
+			exploits = get_exploits(lib, true)
 			if not exploits then continue
 			
 			for exploit in exploits
@@ -977,30 +945,40 @@ do_shell = function(shell = null, brouter = false)
 end function
 
 // Function to exploit router.
-exploit_router = function(address = null)
-	if address and not is_valid_ip(address) then exit(get_name() + ": Address isn't a valid IP address.")
+exploit_router = function(address = null, extra = null)
+	if address and not is_valid_ip(address) then return print(get_name() + ": Address isn't a valid IP address.")
 
 	mx = get_library("metaxploit.so", true)
-	if not mx then exit
+	if not mx then return
 	lib = use_exploit(mx, address)
-	if not lib then exit
-	exploits = get_exploits(lib, null, null, true)
-	if not exploits then exit(get_name() + ": Can't get exploits.")
+	if not lib then return
+	exploits = null
+	if not extra then
+		exploits = get_exploits(lib, true)
+	else
+		exploits = get_exploits(lib, true, extra)
+	end if
+	if not exploits then return print(get_name() + ": Can't get exploits.")
 	return exploits
 end function
 
 // Function to exploit server.
-exploit_server = function(address = null, port = null)
-	if address and not is_valid_ip(address) then exit(get_name() + ": Address isn't a valid IP address.")
-	if not port then exit(get_name() + ": Please provide a port.")
-	if port and typeof(port) != "number" then exit(get_name() + ": Port isn't a number.")
+exploit_server = function(address = null, port = null, extra = null)
+	if address and not is_valid_ip(address) then return print(get_name() + ": Address isn't a valid IP address.")
+	if not port then return print(get_name() + ": Please provide a port.")
+	if port and typeof(port) != "number" then return print(get_name() + ": Port isn't a number.")
 
 	mx = get_library("metaxploit.so", true)
-	if not mx then exit
+	if not mx then return
 	lib = use_exploit(mx, address, port)
-	if not lib then exit
-	exploits = get_exploits(lib, address, port, true)
-	if not exploits then exit(get_name() + ": Can't get exploits.")
+	if not lib then return
+	exploits = null
+	if not extra then
+		exploits = get_exploits(lib, true)
+	else
+		exploits = get_exploits(lib, true, extra)
+	end if
+	if not exploits then return print(get_name() + ": Can't get exploits.")
 	return exploits
 end function
 
@@ -1247,7 +1225,7 @@ if not mx then exit
 lib = use_exploit(mx, params[0])
 if not lib then exit
 
-exploits = get_exploits(lib, params[1], null, true)
+exploits = get_exploits(lib, true, params[1])
 if not exploits then exit(get_name() + ": Can't find vulnerabilities.")
 
 // Will show a log after this runs
@@ -1259,7 +1237,7 @@ for exploit in exploits
 		
 		print("<color=#CC0000>Value >=====[</color><b>" + value["value"] + ":" + value["access"] + "@" + value["type"] + "</b><color=#CC0000>]=====<</color>")
 		
-		if value["type"] == "computer" or value["type"] == "file" then
+		if value["access"] != "guest" and (value["type"] == "computer" or value["type"] == "file") then
 			file = get_passwd(value["result"])
 			if not file then exit(get_name() + ": Can't find passwd file.")
 			if not file.has_permission("r") then exit(get_name() + ": Permission denied.")
@@ -1281,14 +1259,12 @@ import_code("/home/5n4k3/src/menu.src")
 if params.len == 0 then
 	print("<b>Usage: " + get_name() + " [-c | -r | -i]</b>\n-c - Local exploit for computer.\n-r - Local exploit for router.\n-i - Interactive mode.")
 else if params.len == 1 and params[0] == "-c" then
-	print("Trying to get root shell on computer...")
 	do_shell(get_shell)
 else if params.len == 1 and params[0] == "-r" then
-	print("Trying to get root shell on router...")
 	do_shell(get_shell, true)
 else if params.len == 1 and params[0] == "-i" then
 	filenames = ["metaxploit.so", "crypto.so", get_name()]
-	options = ["Probe", "Remote Scan", "Launch Remote", "Cleanup"]
+	options = ["Probe", "Remote Scan", "Launch Remote", "Bank Info", "Mail Info", "Cleanup"]
 	exploits = []
 	address = null
 	port = null
@@ -1343,9 +1319,19 @@ else if params.len == 1 and params[0] == "-i" then
 			
 			// Get list of exploits.
 			if port.val == 0 then
-				exploits = exploit_router(address)
+				input = user_input("Enter LAN address: ")
+				if input != "" and is_valid_ip(address) then
+					exploits = exploit_router(address, input)
+				else
+					exploits = exploit_router(address)
+				end if
 			else
-				exploits = exploit_server(address, port.val)
+				input = user_input("Enter password: ")
+				if input != "" or (input.len >= 0 and input.len <= 8) then
+					exploits = exploit_server(address, port.val, input)
+				else
+					exploits = exploit_server(address, port.val)
+				end if
 			end if
 		
 			if not exploits then
@@ -1371,8 +1357,10 @@ else if params.len == 1 and params[0] == "-i" then
 				for value in exploit["values"]
 					if not shell and value["type"] == "shell" then
 						shell = value["result"]
+						break
 					end if
 				end for
+				if shell != null then break
 			end for
 			if not shell then
 				print("Could not get shell.")
@@ -1381,9 +1369,71 @@ else if params.len == 1 and params[0] == "-i" then
 			
 			// Replicate autohack to remote machine.
 			replicate(shell, filenames)
-			shell.launch("/home/guest/" + get_name(), "-c")
+			if port.val == 0 then
+				shell.launch("/home/guest/" + get_name(), "-r")
+			else
+				shell.launch("/home/guest/" + get_name(), "-c")
+			end if
 			done = true
-		else if option == 4 then // Cleanup
+		else if option == 4 then // Bank Info
+			if not exploits or exploits.len == 0 then
+				print("Please scan remote host first.")
+				continue
+			end if
+			
+			if not address and not port then
+				print("Please scan remote host first.")
+				continue
+			end if
+			
+			// Loop through exploits to get shell.
+			result = null
+			for exploit in exploits
+				for value in exploit["values"]
+					if not result and (value["type"] == "computer" or value["type"] == "file") then
+						result = value
+						break
+					end if
+				end for
+				if result != null then break
+			end for
+			if not result then
+				print("Could not get bank info.")
+				continue
+			end if
+
+			print("Info snagged: " + result["access"] + "@" + result["type"])
+			search_home(result["result"], "Bank.txt")
+		else if option == 5 then // Mail Info
+			if not exploits or exploits.len == 0 then
+				print("Please scan remote host first.")
+				continue
+			end if
+			
+			if not address and not port then
+				print("Please scan remote host first.")
+				continue
+			end if
+			
+			// Loop through exploits to get shell.
+			result = null
+			for exploit in exploits
+				for value in exploit["values"]
+					if not result and (value["type"] == "computer" or value["type"] == "file") then
+						result = value
+						break
+					end if
+				end for
+				if result != null then break
+			end for
+			if not result then
+				print("Could not get bank info.")
+				continue
+			end if
+
+			print("Info snagged: " + result["access"] + "@" + result["type"])
+			search_home(result["result"], "Mail.txt")
+		else if option == 6 then // Cleanup
 			input = user_input("Are you sure (y/n)? ")
 			if input == "y" or input == "Y" then
 				print("Cleaning up system...")
@@ -1397,6 +1447,45 @@ else if params.len == 1 and params[0] == "-i" then
 else
 	print("Invalid argument given to autohack.")
 end if
+exit("Program ended")
+@@@@@@@@@@
+@@@@@/home/5n4k3/src/buildall.src
+// buildall.src - Build this and run to compile all sources.
+computer = get_shell.host_computer
+folder = computer.File(home_dir + "/exploits")
+if not folder then
+	computer.create_folder(home_dir, "exploits")
+end if
+
+folder = computer.File(home_dir + "/virii")
+if not folder then
+	computer.create_folder(home_dir, "virii")
+end if
+
+bin_src = ["decrypt", "wifihack", "zip"]
+exploit_src = ["mrrobot", "payload", "routerbank", "routermail", "routerpass", "autohack"]
+virii_src = ["viruswipe"]
+dirs = ["/bin", home_dir + "/exploits", home_dir + "/virii"]
+
+print("Building all sources...")
+for src in bin_src
+	source = home_dir + "/src/" + src + ".src"
+	print("Building: " + source + " => " + dirs[0])
+	get_shell.build(source, dirs[0])
+end for
+
+for src in exploit_src
+	source = home_dir + "/src/" + src + ".src"
+	print("Building: " + source + " => " + dirs[1])
+	get_shell.build(source, dirs[1])
+end for
+
+for src in virii_src
+	source = home_dir + "/src/" + src + ".src"
+	print("Building: " + source + " => " + dirs[2])
+	get_shell.build(source, dirs[2])
+end for
+
 exit("Program ended")
 @@@@@@@@@@
 

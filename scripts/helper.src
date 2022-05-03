@@ -18,37 +18,35 @@ end function
 
 // Function search the home directory
 search_home = function(result, user_file)
+	home_folder = null
 	if typeof(result) == "file" then
 		while not result.path == "/"
 			result = result.parent
 		end while
 		
 		// Get user home directory
-		folders = result.get_folders
-		for folder in folders
-			if folder.name == "home" then
+		for folder in result.get_folders
+			if folder.name == "home" and folder.is_folder then
 				home_folder = folder
 				break
 			end if
 		end for
-		if not home_folder then exit("Error: Can't access home dir.")
 	else if typeof(result) == "computer" then
 		home_folder = result.File("/home")
-		if not home_folder then exit("Error: Can't access home dir.")
 	else if typeof(result) == "shell" then
 		home_folder = result.host_computer.File("/home")
-		if not home_folder then exit("Error: Can't access home dir.")
 	end if
+	if not home_folder then return print("Error: Can't access home dir.")
 	
 	bank_info = []
 	print("Accessing to " + user_file + " files...")
 	folders = home_folder.get_folders
-	for user in folders
-		print("User: " + user.name + " found...")
-		sub_folders = user.get_folders
+	for folder in folders
 		file_found = false
-		for sub_folder in sub_folders
-			if sub_folder.name == "Config" then
+
+		print("User: " + folder.name + " found...")
+		for sub_folder in folder.get_folders
+			if sub_folder.name == "Config" and sub_folder.is_folder then
 				files = sub_folder.get_files
 				for file in files
 					if file.name == user_file then
@@ -126,10 +124,11 @@ get_accesstype = function(result)
 	if not result then return null
 	if typeof(result) == "shell" then
 		file = result.host_computer.File("/etc/passwd")
+		if not file then return "unknown"
 		if file.has_permission("r") then
 			otherfile = result.host_computer.File("/root")
-			if not otherfile then return null
-			if file.has_permission("rwx") then
+			if not otherfile then return "unknown"
+			if otherfile.has_permission("rwx") then
 				return "root"
 			else
 				return "user"
@@ -139,10 +138,11 @@ get_accesstype = function(result)
 		end if
 	else if typeof(result) == "computer" then
 		file = result.File("/etc/passwd")
+		if not file then return "unknown"
 		if file.has_permission("r") then
 			otherfile = result.File("/root")
 			if not otherfile then return "unknown"
-			if file.has_permission("rwx") then
+			if otherfile.has_permission("rwx") then
 				return "root"
 			else
 				return "user"
@@ -156,29 +156,43 @@ get_accesstype = function(result)
 			file = file.parent
 		end while
 		
+		passwd = null
+		rootdir = null
 		for folder in file.get_folders
+			if rootdir != null and passwd != null then break
+			
 			if folder.name == "etc" then
 				for file in folder.get_files
 					if file.name == "passwd" then
-						if not file.has_permission("r") then
-							return "guest"
+						if not passwd and file.has_permission("r") then
+							passwd = file
 						end if
 					end if
 				end for
 			else if folder.name == "root" then
-				if folder.has_permission("r") then
-					return "root"
-				else
-					return "user"
+				if not rootdir and folder.has_permission("r") then
+					rootdir = folder
 				end if
 			end if
 		end for
+		
+		// Check for user of file.
+		if not passwd or not rootdir then return "unknown"
+		if passwd.has_permission("r") then
+			if rootdir.has_permission("rwx") then
+				return "root"
+			else
+				return "user"
+			end if
+		else
+			return "guest"
+		end if
 	end if
 	return "unknown"
 end function
 
 // Function scan for all exploits on remote system
-get_exploits = function(lib, address = null, port = null, use_types = false, password = null)
+get_exploits = function(lib, use_types = false, extra = null)
 	// Build a map of all exploits
 	mem_map = []
 	print("Scanning for exploits: [<color=#00DD00>" + lib.lib_name + ":" + lib.version + "</color>]\n")
@@ -195,14 +209,10 @@ get_exploits = function(lib, address = null, port = null, use_types = false, pas
 			
 			if use_types then
 				type = null
-				if address and is_valid_ip(address) then
-					type = lib.overflow(mem, value, address)
+				if extra then
+					type = lib.overflow(mem, value, extra)
 				else
-					if password then
-						type = lib.overflow(mem, value, password)
-					else
-						type = lib.overflow(mem, value)
-					end if
+					type = lib.overflow(mem, value)
 				end if
 				if not type then continue
 				
