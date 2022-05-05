@@ -100,7 +100,6 @@ end function
 do_shell = function(shell = null, brouter = false)
 	if not shell or typeof(shell) != "shell" then exit(get_name() + ": Could not get shell.")
 	if typeof(brouter) != "number" then exit(get_name() + ": Flag must be true or false.")
-	if active_user == "root" then shell.start_terminal
 	
 	print("<color=#AABB00><b>Starting to get shell on " + shell.host_computer.local_ip + "...</b></color>\n")
 	crypto = get_library("crypto.so", true)
