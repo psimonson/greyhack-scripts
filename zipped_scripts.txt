@@ -411,32 +411,37 @@ get_accesstype = function(result)
 		end while
 		
 		passwd = null
-		rootdir = null
 		for folder in file.get_folders
-			if rootdir != null and passwd != null then break
-			
 			if folder.name == "etc" then
 				for file in folder.get_files
 					if file.name == "passwd" then
-						if not passwd and file.has_permission("r") then
+						if passwd and file.has_permission("r") then
 							passwd = file
+							break
 						end if
 					end if
 				end for
-			else if folder.name == "root" then
-				if not rootdir and folder.has_permission("r") then
+			end if
+		end for
+		
+		rootdir = null
+		for folder in file.get_folders
+			if folder.name == "root" then
+				if rootdir and folder.has_permission("r") then
 					rootdir = folder
+					break
 				end if
 			end if
 		end for
 		
 		// Check for user of file.
-		if not passwd or not rootdir then return "unknown"
-		if passwd.has_permission("r") then
-			if rootdir.has_permission("rwx") then
-				return "root"
-			else
-				return "user"
+		if passwd and passwd.has_permission("r") then
+			if rootdir then
+				if rootdir.has_permission("rwx") then
+					return "root"
+				else
+					return "user"
+				end if
 			end if
 		else
 			return "guest"
