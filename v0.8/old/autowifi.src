@@ -1,0 +1,69 @@
+// Gather all network devices into an array.
+array = []
+devices = get_shell.host_computer.network_devices
+for device in devices.split("\n")
+	array = array + [device.split(" ")[0]]
+end for
+
+// List all network devices and get user option.
+option = null
+while not option or (option.val < 0 or option.val > array.len)
+	i = 1
+
+	for device in array
+		if device == "" then continue
+		print(i + ". " + device)
+		i = i + 1
+	end for
+
+	print("0. Exit\n")
+	option = user_input("Enter choice? ")
+end while
+
+// Check if option is exit.
+if option.val == 0 then exit("Quitting wifi autohack...")
+
+netdev = array[option.val - 1]
+networks = get_shell.host_computer.wifi_networks(array[option.val - 1])
+option = null
+while not option or (option.val < 0 or option.val > networks.len)
+	// List all wifi networks.
+	i = 1
+	info = "OPTION BSSID PWR ESSID"
+	
+	for network in networks
+		info = info + "\n" + i + ". " + network
+		i = i + 1
+	end for
+
+	print(format_columns(info))
+	print("0. Exit")
+	
+	option = user_input("Enter choice? ")
+end while
+
+// Check if option is exit.
+if option.val == 0 then exit("Quitting wifi autohack...")
+
+// Process and connect to network.
+bssid = networks[option.val - 1].split(" ")[0]
+essid = networks[option.val - 1].split(" ")[2]
+
+import_code("/home/5n4k3/source/getlib.src")
+
+// Use crypto
+crypt = get_library("crypto.so")
+if not crypt then exit()
+
+// Crack wifi password.
+crypt.airmon("start", netdev)
+crypt.aireplay(bssid, essid, 15000)
+crypt.airmon("stop", netdev)
+pass = crypt.aircrack(home_dir + "/file.cap")
+
+// Connect to wifi network.
+print("Trying to connect to " + essid)
+if not get_shell.host_computer.connect_wifi(netdev, bssid, essid, pass) then
+	print("Failed to connect to " + essid)
+end if
+

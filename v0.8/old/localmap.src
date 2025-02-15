@@ -1,0 +1,29 @@
+import_code("/home/5n4k3/source/gethacks.src")
+import_code("/home/5n4k3/source/getlib.src")
+import_code("/home/5n4k3/source/loadlib.src")
+import_code("/home/5n4k3/source/shelltype.src")
+import_code("/home/5n4k3/source/memmap.src")
+
+// Simple script to perform local hacks.
+if params.len != 0 then exit("Usage: <b>" + program_path.split("/")[-1] + "</b>")
+
+map = get_memory_map()
+if map["number"].len == 0 and map["computer"].len == 0 and map["file"].len == 0 and map["shell"].len == 0 then exit("Map is empty.")
+
+pc = get_shell.host_computer
+if not pc.File(home_dir + "/localmap.txt") then
+	pc.touch(home_dir, "localmap.txt")
+end if
+
+file = pc.File(home_dir + "/localmap.txt")
+content = ""
+
+for type in ["number", "computer", "file", "shell"]
+	for item in map[type]
+		content = content + "=====================" + char(10) + "Library: " + item["name"] + char(10) + "Version: " + item["version"] + char(10) + "Memory: " + item["memory"] + char(10) + "Unsecure Value: " + item["value"] + char(10) + "Access: " + item["access"] + char(10) + "Type: " + item["type"] + char(10)
+	end for
+end for
+
+file.set_content(content)
+print("File " + file.name + " saved!")
+

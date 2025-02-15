@@ -1,0 +1,30 @@
+if params.len != 1 then exit("Usage: " + program_path.split("/")[-1] + " [dir]")
+
+source_path = home_dir + "/" + params[0]
+source_dir = get_shell.host_computer.File(source_path)
+if not source_dir then exit("Error: Could not find source path.")
+
+sources = [["autohack.src", "autolocal.src", "autoclean.src"], ["repoall.src", "autowifi.src", "localhack.src", "localmap.src", "getinfo.src", "getports.src", "zip.src"]]
+
+for source in sources[0]
+	get_shell.build(source_dir.path + "/" + source, home_dir)
+	file = get_shell.host_computer.File(source_dir.path + "/" + source)
+	if file != null then
+		print("Build of " + source_dir.path + "/" + source + " successful.")
+	else
+		print("Build of " + source_dir.path + "/" + source + " failed.")
+	end if
+	wait(0.1)
+end for
+
+for source in sources[1]
+	get_shell.build(source_dir.path + "/" + source, "/bin")
+	file = get_shell.host_computer.File(source_dir.path + "/" + source)
+	if file != null then
+		print("Build of " + source_dir.path + "/" + source + " successful.")
+	else
+		print("Build of " + source_dir.path + "/" + source + " failed.")
+	end if
+	wait(0.1)
+end for
+

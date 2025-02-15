@@ -1,0 +1,20 @@
+////////////////////////////////////////////////////////
+// Function to return shell object with user and type.
+////////////////////////////////////////////////////////
+get_shell_type = function(result)
+	shell = {}
+	if typeof(result) == "shell" then
+		if result.host_computer.touch("/home/guest", "anonymous.dat") then
+			file = result.host_computer.File("/home/guest/anonymous.dat")
+			if not file then
+				print("File doesn't exist.")
+				exit()
+			end if
+			shell["user"] = file.owner
+			shell["shell"] = result
+			file.delete
+		end if
+	end if
+	return shell
+end function
+

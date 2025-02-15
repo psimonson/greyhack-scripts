@@ -1,0 +1,95 @@
+//////////////////////////////////////
+// Description: Get all remote hacks.
+// Returns: Hacks
+//////////////////////////////////////
+get_remote_hacks = function(addr = null, port = 0)
+	result = {}
+	
+	// Run against a remote address/port combination
+	if not is_valid_ip(addr) then
+		print("Error: Invalid IP address given.")
+		return result
+	end if
+	
+	mx = get_library()
+	if not mx then return result
+	
+	netsession = mx.net_use(addr, port)
+	if not netsession then
+		print("Error: Cannot get net session.")
+		return result
+	end if
+	
+	dump = netsession.dump_lib
+	if not dump then
+		print("Error: Cannot dump library.")
+		return result
+	end if
+	print("Getting remote hacks: <color=#A50000><b>" + dump.lib_name + ":" + dump.version + "</b></color>")
+
+	hacks = []	
+	addresses = mx.scan(dump)
+	for mem in addresses
+		pair = {}
+		values = []
+		//print("Address: " + mem)
+		data = mx.scan_address(dump, mem)
+		strings = data.split("Unsafe check: ")
+		for string in strings
+			if string == strings[0] then continue
+			
+			value = string[string.indexOf("<b>")+3:string.indexOf("</b>")]
+			//print(" --> " + value)
+			values = values + [value]
+		end for
+		pair["memory"] = mem
+		pair["values"] = values
+		hacks = hacks + [pair]
+	end for
+	result["dump"] = dump
+	result["hacks"] = hacks
+	return result
+end function
+
+//////////////////////////////////////
+// Description: Get all local hacks.
+// Returns: Hacks
+//////////////////////////////////////
+get_local_hacks = function()
+	filenames = ["net.so", "init.so", "kernel_module.so", "kernel_router.so"]
+	hacks = []
+
+	mx = get_library()
+	if not mx then return hacks
+
+	for filename in filenames
+		dump = mx.load("/lib/" + filename)
+		if not dump then
+			print("Error: Could not find " + filename)
+			continue
+		end if
+		print("Getting local hacks: <color=#A50000><b>" + filename + "</b></color>")
+
+		addresses = mx.scan(dump)
+		for mem in addresses
+			hack = {}
+			values = []
+			//print("Address: " + mem)
+			data = mx.scan_address(dump, mem)
+			strings = data.split("Unsafe check: ")
+			for string in strings
+				if string == strings[0] then continue
+			
+				value = string[string.indexOf("<b>")+3:string.indexOf("</b>")]
+				//print(" --> " + value)
+				values = values + [value]
+			end for
+			hack["metalib"] = filename
+			hack["memory"] = mem
+			hack["values"] = values
+			hacks = hacks + [hack]
+		end for
+	end for
+	return hacks
+end function
+

@@ -1,0 +1,218 @@
+// shellhelp.src - Some functions for when you obtain a shell.
+
+cleanup = function(shell = null, filenames = null)
+	if not shell then return print_error("Can't clean up files.")
+	if not filenames or typeof(filenames) != "list" then return print_error("No filenames or not a list.")
+
+	// Save original log file.
+	file = get_shell.host_computer.File("/var/system.log")
+	if file != null then
+		file.copy("/home/guest", "system.log")
+	end if
+	
+	// Delete all files in filenames array.
+	for filename in filenames
+		file = shell.host_computer.File("/home/guest/" + filename)
+		if not file then continue
+		print("Deleting file: " + file.path)
+		file.delete
+	end for
+	
+	// Replace log file.
+	file = get_shell.host_computer.File("/home/guest/system.log")
+	if file != null then
+		file.move("/var", "system.log")
+	end if
+end function
+
+// Function to replicate itself into routers and computers
+replicate = function(remote_shell = null, filenames = null)
+	if not remote_shell then return print_error("No remote shell.")
+	if not filenames or typeof(filenames) != "list" then return print_error("No filenames or not a list.")
+	if typeof(remote_shell) != "shell" then return print_error("Shell argument not correct.")
+
+	for filename in filenames
+		get_shell.scp(parent_path(program_path) + "/" + filename, "/home/guest", remote_shell)
+		file = remote_shell.host_computer.File("/home/guest/" + filename)
+		if not file then
+			print("Can't find file: /home/guest/" + filename)
+			continue
+		end if
+		print("Setting owner and group for " + file.path + ".")
+		file.set_owner("guest", 0)
+		file.set_group("guest", 0)
+		file.chmod("u+rwx,g+rwx,o+rwx", 0)
+	end for
+end function
+
+// Function to quit and cleanup shell
+quit = function(shell = null, message = null)
+	if not shell or not message then return print_error("No shell or message given.")
+	print_error(message)
+	// TODO: Cleanup before exit
+	exit("Program ended")
+end function
+
+// Function to get root password.
+get_passfile = function(file = null)
+	if not file then exit(get_name() + ": File is null.")
+	if file and typeof(file) != "file" then exit(get_name() + ": Not a file.")
+	if not file.has_permission("r") then exit(get_name() + ": Permission denied.")
+	if file.is_binary then exit(get_name() + ": File was a binary.")
+	
+	cont = file.get_content.split("\n")
+	if not cont then exit(get_name() + ": Can't get content.")
+	return cont
+end function
+
+// Function to exploit.
+do_exploit = function(address = null, port = null)
+	if not address then exit(get_name() + ": No address given.")
+	
+	shell = null
+	exploits = null
+	
+	if not port then
+		exploits = exploit_router(address)
+	else
+		exploits = exploit_server(address, port)
+	end if
+	if not exploits then exit(get_name() + ": Can't exploit system.")
+		
+	for exploit in exploits
+		memory = exploit["address"]
+		for value in exploit["values"]
+			if not value then continue
+			print(value["value"] + " -> " + value["access"] + "@" + value["type"])
+			
+			if not shell and value["type"] == "shell" then
+				shell = value["result"]
+				break
+			end if
+		end for
+		if shell then break
+	end for
+	
+	return shell
+end function
+
+// Function to get shell on remote machine.
+do_shell = function(shell = null, brouter = false)
+	if not shell or typeof(shell) != "shell" then exit(get_name() + ": Could not get shell.")
+	if typeof(brouter) != "number" then exit(get_name() + ": Flag must be true or false.")
+	
+	print("<color=#AABB00><b>Starting to get shell on " + shell.host_computer.local_ip + "...</b></color>\n")
+	crypto = get_library("crypto.so", true)
+	if not crypto then
+		print("Warning: Can't find crypto library.")
+	else
+		modules = []
+		passwd = null
+		
+		if brouter then
+			modules = ["init.so", "kernel_router.so", "net.so"]
+		else
+			modules = ["init.so", "kernel_module.so", "net.so"]
+		end if
+		
+		mx = get_library("metaxploit.so", true)
+		if not mx then exit(get_name() + ": Can't find metaxploit.")
+			
+		for module in modules
+			lib = use_exploit(mx, "/lib/" + module, null, true)
+			if not lib then continue
+			exploits = get_exploits(lib, true)
+			if not exploits then continue
+			
+			for exploit in exploits
+				memory = exploit["address"]
+				for value in exploit["values"]
+					if not value then continue
+					
+					print(value["value"] + " -> " + value["access"] + "@" + value["type"])
+					
+					if not passwd and value["type"] == "shell" and value["access"] != "guest" then
+						passwd = value["result"].host_computer.File("/etc/passwd")
+						break
+					end if
+					
+					if not passwd and value["type"] == "computer" and value["access"] != "guest" then
+						passwd = value["result"].File("/etc/passwd")
+						break
+					end if
+				
+					if not passwd and value["type"] == "file" and value["access"] != "guest" then
+						passwd = value["result"]
+						while passwd.path != "/"
+							passwd = passwd.parent
+						end while
+						
+						for folder in passwd.get_folders
+							if folder.name == "etc" then
+								passwd = folder
+								break
+							end if
+						end for
+						
+						for file in passwd.get_files
+							if file.name == "passwd" then
+								passwd = file
+								break
+							end if
+						end for
+						break
+					end if
+				end for
+				if passwd then break
+			end for
+			if passwd then break
+		end for
+		if not passwd then quit(shell, "Can't get password file.")
+		cont = get_passfile(passwd)
+		user = cont[0].split(":")
+		print("Deciphering password for user: " + user[0] + "\n")
+		pass = crypto.decipher(user[1])
+		rootshell = get_shell(user[0], pass)
+		if not rootshell then exit(get_name() + ": Can't get root shell.")
+		rootshell.start_terminal
+	end if
+end function
+
+// Function to exploit router.
+exploit_router = function(address = null, extra = null)
+	if address and not is_valid_ip(address) then return print(get_name() + ": Address isn't a valid IP address.")
+
+	mx = get_library("metaxploit.so", true)
+	if not mx then return
+	lib = use_exploit(mx, address)
+	if not lib then return
+	exploits = null
+	if not extra then
+		exploits = get_exploits(lib, true)
+	else
+		exploits = get_exploits(lib, true, extra)
+	end if
+	if not exploits then return print(get_name() + ": Can't get exploits.")
+	return exploits
+end function
+
+// Function to exploit server.
+exploit_server = function(address = null, port = null, extra = null)
+	if address and not is_valid_ip(address) then return print(get_name() + ": Address isn't a valid IP address.")
+	if not port then return print(get_name() + ": Please provide a port.")
+	if port and typeof(port) != "number" then return print(get_name() + ": Port isn't a number.")
+
+	mx = get_library("metaxploit.so", true)
+	if not mx then return
+	lib = use_exploit(mx, address, port)
+	if not lib then return
+	exploits = null
+	if not extra then
+		exploits = get_exploits(lib, true)
+	else
+		exploits = get_exploits(lib, true, extra)
+	end if
+	if not exploits then return print(get_name() + ": Can't get exploits.")
+	return exploits
+end function
+

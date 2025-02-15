@@ -1,0 +1,169 @@
+/////////////////////////////////////////////
+// Some helper functions by 5n4k3
+// Create by 5n4k3 on 09/13/2023.
+/////////////////////////////////////////////
+
+libs = {}
+libs.toFile = function(anyObject)
+    if typeof(anyObject) == "shell" then return anyObject.host_computer.File("/")
+    if typeof(anyObject) == "computer" then return anyObject.File("/")
+    if typeof(anyObject) == "file" then
+        while anyObject.parent
+            anyObject = anyObject.parent
+        end while
+        return anyObject
+    end if
+    return null
+end function
+
+libs.findFile = function(fileObject, path = "/", filename = "passwd")
+    if typeof(fileObject) != "file" then return null
+    if typeof(path) != "string" then return null
+    if typeof(filename) != "string" then return null
+
+    fileObject = get_shell.host_computer.File(path)
+    if not fileObject then return null
+    if filename == "" then return fileObject
+    for file in fileObject.get_folders + fileObject.get_files
+        f = libs.findFile(file, file.path, filename)
+        if f != null and f.name == filename then return file
+    end for
+    return null
+end function
+
+libs.replicate = function(filenames = [], shell = null)
+    if typeof(filenames) != "list" then return null
+    if typeof(shell) != "shell" then return null
+
+    count = 0
+    folders = ["/lib", "/bin", "/usr/bin", parent_path(program_path), current_path]
+    for filename in filenames
+        for folder in folders
+            file = get_shell.host_computer.File(folder + "/" + filename)
+            if not file then continue
+            result = get_shell.scp(file.path, "/home/guest", shell)
+            if typeof(result) == "string" then break
+            count = count + 1
+            break
+        end for
+    end for
+    return count == filenames.len
+end function
+
+libs.checkUser = function(anyObject)
+    if typeof(anyObject) != "shell" and typeof(anyObject) != "computer" and typeof(anyObject) != "file" then return null
+    
+    toFile = function(anyObject)
+        if typeof(anyObject) == "shell" then return anyObject.host_computer.File("/")
+        if typeof(anyObject) == "computer" then return anyObject.File("/")
+        if typeof(anyObject) == "file" then
+            while anyObject.parent
+                anyObject = anyObject.parent
+            end while
+            return anyObject
+        end if
+        return null
+    end function
+
+    // Check for root user.
+    rootFolder = toFile(anyObject)
+    if rootFolder != null then
+        for file in rootFolder.get_folders
+            if folder.name == "root" then
+                if folder.has_permission("r") and folder.has_permission("w") and folder.has_permission("x") then
+                    return "root"
+                end if
+            end if
+        end for
+    end if
+
+    // Get home folder.
+    homeFolder = null
+    rootFolder = toFile(anyObject)
+    if rootFolder != null then
+        for folder in rootFolder.get_folders
+            if folder.name == "home" then
+                homeFolder = folder
+                break
+            end if
+        end for
+    end if
+
+    // Check for normal user.
+    if homeFolder != null then
+        for folder in homeFolder.get_folders
+            if folder.name != "guest" then return folder.name
+        end for
+    end if
+
+    return "guest"
+end function
+
+libs.scanLib = function(metalib = null, metax = null)
+    if not metalib then return null
+    if not metax then return null
+
+    ret = {}
+    ret.name = metalib.lib_name
+    ret.version = metalib.version
+    ret.memorys = {}
+    memorys = metax.scan(metalib)
+    for memory in memorys
+        data = metax.scan_address(metalib, memory).split("Unsafe check: ")
+        if not data then continue
+        for line in data
+            if line == data[0] then continue
+            if line == "" then continue
+            value = line[line.indexOf("<b>")+3:line.indexOf("</b>")].replace(char(10), "")
+            ret.memorys[memory].push(value)
+        end for
+    end for
+    return ret
+end function
+
+libs.localHack = function(libname = null, metax = null, injectArg = "")
+    if typeof(libname) != "string" then return null
+    if typeof(metax) != "MetaxploitLib" then return null
+    if typeof(injectArg) != "string" then return null
+
+    metalib = metax.load(libname)
+    if not metalib then return null
+    
+    exploits = libs.scanLib(metalib, metax)
+    if not exploits then return null
+
+    objects = []
+    for memory in exploits.memorys
+        for value in memory.value
+            object = metalib.overflow(memory.key, value, injectArg)
+            if typeof(object) != "shell" and typeof(object) != "computer" and typeof(object) != "file" then continue
+            objects.push(object)
+        end for
+    end for
+    return objects
+end function
+
+libs.remoteHack = function(metax = null, targetIP = "", targetPort = 0, injectArg = "")
+    if typeof(metax) != "MetaxploitLib" then return null
+    if typeof(targetIP) != "string" then return null
+    if typeof(targetPort) != "number" then return null
+
+    netsession = metax.net_use(targetIP, targetPort)
+    if not netsession then return null
+    
+    metalib = netsession.dump_lib
+    if not metalib then return null
+
+    exploits = libs.scanLib(metalib, metax)
+    if not exploits then return null
+
+    objects = []
+    for memory in exploits.memorys
+        for value in memory.value
+            object = metalib.overflow(memory.key, value, injectArg)
+            if typeof(object) != "shell" and typeof(object) != "computer" and typeof(object) != "file" then continue
+            objects.push(object)
+        end for
+    end for
+    return objects
+end function

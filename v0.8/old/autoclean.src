@@ -1,0 +1,23 @@
+if params.len != 0 then exit("Usage: autoclean")
+
+answer = null
+while not answer and (answer != "y" or answer != "Y")
+	answer = user_input("Do you really want to clean the system (Y/N)? ")
+	if answer == "n" or answer == "N" then exit("You chose to quit instead.")
+end while
+
+pc = get_shell.host_computer
+files = ["metaxploit.so", "crypto.so", "autohack", "autolocal", "autoclean", "getports", "getinfo"]
+for file in files
+	result = pc.File("/home/guest/" + file)
+	if not result then continue
+	print("Deleting file: " + result.path)
+	result.delete
+	if result.delete then
+		print("Success.")
+	else
+		print("Failed.")
+	end if
+end for
+print("Be sure to clear the log at /var/system.log")
+

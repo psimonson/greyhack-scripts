@@ -1,0 +1,43 @@
+// routervirus.src - Hack router remotely to make system not boot.
+import_code("/home/5n4k3/src/helper.src")
+
+if params.len != 2 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [public ip] [local ip]</b>")
+if not is_valid_ip(params[0]) or not is_valid_ip(params[1]) then exit(get_name() + ": One or more IP address(es) is/are invalid.")
+
+mx = get_library("metaxploit.so", true)
+if not mx then exit
+lib = use_exploit(mx, params[0])
+if not lib then exit
+
+exploits = get_exploits(lib, params[0])
+if not exploits then exit(get_name() + ": Can't find vulnerabilities.")
+
+// Will show a log after this runs
+for exploit in exploits
+	address = exploit["address"]
+	print("<color=#00CC00>Address >=====[</color><b>" + address + "</b><color=#00CC00>]=====<</color>")
+	for value in exploit["values"]
+		print("<color=#CC0000>Value >=====[</color><b>" + value + "</b><color=#CC0000>]=====<</color>")
+		if params.len == 2 and is_valid_ip(params[1]) then
+			result = lib.overflow(address, value, params[1])
+		else
+			result = lib.overflow(address, value)
+		end if
+		if not result then continue
+		if typeof(result) == "computer" or typeof(result) == "file" then
+			get_file(result, "home", "Bank.txt")
+			if typeof(result) == "computer" then
+				print("==========\n" + result.get_ports + "\n===========")
+				bootdir = result.File("/boot")
+				if not bootdir then exit(get_name() + ": Can't get boot directory.")
+				if not bootdir.has_permission("rw") then exit(get_name() + ": Permission denied.")
+				for file in bootdir.get_files
+					print("Deleting file: " + file.path)
+					file.delete
+				end for
+				print("Done!")
+			end if
+		end if
+	end for
+end for
+

@@ -1,0 +1,67 @@
+if params.len != 3 then exit("Usage: " + program_path.split("/")[-1] + " [password] [ip] [port]")
+if not is_valid_ip(params[1]) then exit("Error: Invalid address given.")
+if params[2].val < 0 or params[2].val > 65535 then exit("Error: Port given out of range.")
+
+user = "root"
+pass = params[0]
+addr = params[1]
+port = params[2].val
+
+// Connect to ssh for repository upload.
+repo_shell = get_shell.connect_service(addr, port, user, pass)
+if not repo_shell then exit()
+
+repodir = "/server/aptfiles/"
+files = [home_dir + "/autohack", home_dir + "/autolocal", home_dir + "/autoclean", "/bin/getinfo", "/bin/getports", "/bin/autowifi", "/bin/localhack", "/bin/localmap", "/bin/zip"]
+filenames = ["autohack", "autolocal", "autoclean", "getinfo", "getports", "localhack", "localmap", "autowifi", "zip"]
+
+// Make a backup of the log file.
+logfile = repo_shell.host_computer.File("/var/system.log")
+if logfile != null then
+	logfile.copy("/root", "system.log")
+else
+	repo_shell.host_computer.touch("/var", "system.log")
+	print("Warning: System log not found.")
+end if
+
+
+// Delete all files in repository.
+for filename in filenames
+	file = repo_shell.host_computer.File(repodir + filename)
+	if file != null then
+		file.delete
+		print("File " + repodir + filename + " deleted.")
+	end if
+end for
+
+// Send all files to repository.
+print("Sending files...")
+for file in files
+	print("Copying file '" + file + "' to '" + repodir + "'.")
+	get_shell.scp(file, repodir, repo_shell)
+	wait(1)
+end for
+
+total = 0
+print("Checking for files to see if they exist on the server...")
+for filename in filenames
+	file = repo_shell.host_computer.File(repodir + filename)
+	if file != null then
+		print("File " + repodir + filename + " exists.")
+		total = total + 1
+	else
+		print("File " + repodir + filename + " not found.")
+	end if
+end for
+
+print("Total of " + str(total) + " file(s) copied to server.")
+file = repo_shell.host_computer.File("/root/system.log")
+if file != null then
+	file.move("/var", "system.log")
+	print("Log replaced.")
+else
+	print("Log backup not found.")
+end if
+print("Be sure to check the log before you 'exit'.")
+repo_shell.start_terminal
+

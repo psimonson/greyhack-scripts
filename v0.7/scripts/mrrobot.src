@@ -1,0 +1,53 @@
+// mrrobot.src - Source for the Mr. Robot TV show 0day exploit.
+import_code("/home/5n4k3/src/helper.src")
+import_code("/home/5n4k3/src/shellhelp.src")
+
+// Main program starts here.
+if params.len < 2 or params.len % 2 != 0 or params[0] == "-h" or params[0] == "--help" then exit("<b>Usage: " + get_name() + " [address] [port]</b>")
+if params.len % 2 == 0 and not is_valid_ip(params[0]) then exit(get_name() + ": Invalid IP given.")
+if params.len % 2 == 0 and params[1].to_int < 0 or params[1].to_int > 65535 then exit(get_name() + ": Invalid port.")
+
+i = 2
+new_params = []
+while i < params.len
+	new_params.push(params[i] + " " + params[i+1])
+	i = i + 2
+end while
+
+if params[1].to_int == 0 then
+	print("<color=#AABB00><b>Running router exploit on " + params[0] + "...</b></color>\n")
+	shell = do_exploit(params[0])
+
+	if new_params.len != 0 then
+		filenames = ["metaxploit.so", "crypto.so", "mrrobot", "payload"]
+		if not shell then exit(get_name() + ": Could not obtain shell.")
+		replicate(shell, filenames)
+		shell.launch("/home/guest/mrrobot", new_params.join(" "))
+		cleanup(shell, filenames)
+	else
+		filenames = ["metaxploit.so", "crypto.so", "mrrobot", "payload"]
+		if not shell then exit(get_name() + ": Could not obtain shell.")
+		replicate(shell, filenames)
+		shell.launch("/home/guest/payload", "-r")
+	end if
+else
+	print("<color=#AABB00><b>[*] Running server exploit...</b></color>")
+	shell = do_exploit(params[0], params[1].to_int)
+	if not shell then exit(get_name() + ": Could not obtain shell.")
+	print("<color=#AABB00><b>Got shell from " + shell.host_computer.local_ip + "!</b></color>")
+
+	if new_params.len != 0 then
+		// Replicate itself onto next machine.
+		filenames = ["metaxploit.so", "crypto.so", "mrrobot", "payload"]
+		replicate(shell, filenames)
+		shell.launch("/home/guest/mrrobot", new_params.join(" "))
+		cleanup(shell, filenames)
+	else
+		// Get new shell and exploit it.
+		filenames = ["metaxploit.so", "crypto.so", "mrrobot", "payload"]
+		replicate(shell, filenames)
+		shell.launch("/home/guest/payload", "")
+	end if
+end if
+exit("Program ended")
+

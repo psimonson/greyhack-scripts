@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<style type='text/css'>
+
+body { font: 12px Helvetica, sans-serif; margin:0; overflow-y:auto; height:100%; }
+
+html{
+	background-color: #00005BFF;
+    height:100%;
+    margin:0; overflow-y:auto;
+}
+
+.hackshop { 
+    text-align: center;    
+    padding: 100px;
+    padding-top: 25px;
+}
+
+.btn {
+    background-color: #00005AFF;
+    border: 1px solid #0000FFFF;
+    color: #FFFFFFFF;
+    padding: 8px 8px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font: 18;
+    width: 130px;
+  }
+
+.btn-sel{
+    background-color: #00005AFF;
+}
+.btn-group button:hover {
+    background-color: #00005AFF;
+}
+
+</style>
+<div style="background-color:#00002AFF;color:white;padding:3px;">
+<div class="btn-group" style="text-align: center;">
+  <button type="button" class="btn btn-primary btn-sel" id="Home">Main</button>
+  <button type="button" class="btn btn-primary" id="InformaticaShop">Shop</button>
+</div>
+</div>
+
+  
+  <div class="hackshop">
+    <img src="shop_alter.jpg" width="250" height="145" align="center">
+    <p style="font-size:18px;">Welcome</p>    
+    <p>
+Welcome to 5n4k3's freeware shop!<br>
+Enter and check out my free software!
+	</p>
+	<p style="font-size:16px;">.:[ Free Software ]:.</p>
+	<p>
+autohack - Simple hacking multi tool.<br>
+routerbank - Router exploit for retrieving bank info.<br>
+routerpass - Router exploit for retrieving password info.<br>
+routermail - Router exploit for retrieving mail info.<br>
+viruswipe - Takes a machine offline.
+    </p>
+  </div>
+

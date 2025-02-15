@@ -1,0 +1,39 @@
+///////////////////////////////////////////////////////////
+// get_memory_map() - Gets all local hacks for all major
+// libraries and stores them in a map.
+///////////////////////////////////////////////////////////
+get_memory_map = function()
+	map = {}
+	map["number"] = []
+	map["computer"] = []
+	map["file"] = []
+	map["shell"] = []
+
+	hacks = get_local_hacks()
+	if hacks.len == 0 then exit("No local hacks found.")
+
+	for hack in hacks
+		lib = load_library(hack["metalib"])
+		if not lib then continue
+	
+		print("Library [<color=#A50000>" + hack["metalib"] + "</color>]: " + hack["memory"])
+		for value in hack["values"]
+			result = lib.overflow(hack["memory"], value)
+			if not result then continue
+		
+			data = {}
+			data["name"] = lib.lib_name
+			data["version"] = lib.version
+			data["memory"] = hack["memory"]
+			data["value"] = value
+			data["access"] = "unknown"
+			if typeof(result) == "shell" then
+				data["access"] = get_shell_type(result)["user"]
+			end if
+			data["type"] = typeof(result)
+			map[typeof(result)].push(data)
+		end for
+	end for
+	return map
+end function
+

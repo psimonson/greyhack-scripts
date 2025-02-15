@@ -1,0 +1,19 @@
+///////////////////////////////////////////
+// Get local library.
+// Returns: Metalib library.
+///////////////////////////////////////////
+get_library = function(libname = "metaxploit.so")
+	mx = null
+	libpaths = ["/lib/", parent_path(program_path) + "/"]
+	for libpath in libpaths
+		mx = include_lib(libpath + libname)
+		if not mx then
+			print("Warning: Library not found at '" + libpath + "'.")
+		else
+			print("Information: Found library '" + libname + "'.")
+			break
+		end if
+	end for
+	return mx
+end function
+

@@ -1,0 +1,256 @@
+import_code("/home/5n4k3/source/gethacks.src")
+import_code("/home/5n4k3/source/getlib.src")
+
+if params.len != 3 then exit("Usage: " + program_path.split("/")[-1] + " [ip] [lan_ip] [bank|mail|passwd]")
+if not is_valid_ip(params[0]) then exit("Error: Invalid IP address given.")
+if not is_valid_ip(params[1]) then exit("Error: Invalid port number.")
+if params[2] != "bank" and params[2] != "mail" and params[2] != "passwd" then exit("Error: Invalid command given.")
+
+result = get_remote_hacks(params[0])
+if not result then exit()
+
+files = []
+lib = result["dump"]
+hacks = result["hacks"]
+for hack in hacks
+	for value in hack["values"]
+		result = lib.overflow(hack["memory"], value, params[1])
+		if not result then continue
+		
+		if typeof(result) == "file" then
+			// Get bank or mail or passwd file.
+			rootdir = result
+			while rootdir.path != "/"
+				rootdir = rootdir.parent
+			end while
+			
+			if params[2] == "bank" then
+				home = null
+				for folder in rootdir.get_folders
+					if folder.name == "home" then
+						home = folder
+						break
+					end if
+				end for
+				
+				// Get all bank files from file object.
+				for folder in home.get_folders
+					if folder.name == "guest" then continue
+					for userdir in folder.get_folders
+						if userdir.name != "Config" then continue
+						for file in userdir.get_files
+							if file.name != "Mail.txt" then continue
+							if not file.has_permission("r") then
+								print("Mail file permission denied.")
+								continue
+							end if
+							if file.is_binary then
+								print("Mail file was binary.")
+								continue
+							end if
+							if file.is_folder then
+								print("Mail file was a folder.")
+								continue
+							end if
+							map = {}
+							map["user"] = folder.name
+							map["file"] = file
+							if files.len == 0 then
+								files.push(map)
+							else
+								found = false
+								for obj in files
+									if obj["user"] == map["user"] then
+										found = true
+										break
+									end if
+								end for
+								if not found then files.push(map)
+							end if
+						end for
+					end for
+				end for
+			else if params[2] == "mail" then
+				home = null
+				for folder in rootdir.get_folders
+					if folder.name == "home" then
+						home = folder
+						break
+					end if
+				end for
+				
+				// Get all mail files from file object.
+				for folder in home.get_folders
+					if folder.name == "guest" then continue
+					for userdir in folder.get_folders
+						if userdir.name != "Config" then continue
+						for file in userdir.get_files
+							if file.name != "Mail.txt" then continue
+							if not file.has_permission("r") then
+								print("Mail file permission denied.")
+								continue
+							end if
+							if file.is_binary then
+								print("Mail file was binary.")
+								continue
+							end if
+							if file.is_folder then
+								print("Mail file was a folder.")
+								continue
+							end if
+							map = {}
+							map["user"] = folder.name
+							map["file"] = file
+							if files.len == 0 then
+								files.push(map)
+							else
+								found = false
+								for obj in files
+									if obj["user"] == map["user"] then
+										found = true
+										break
+									end if
+								end for
+								if not found then files.push(map)
+							end if
+						end for
+					end for
+				end for
+			else if params[2] == "passwd" then
+				homedir = null
+				for folder in rootdir.get_folders
+					if folder.name == "etc" then
+						homedir = folder
+						break
+					end if
+				end for
+				
+				// Get the passwd file if it has access.
+				for file in homedir.get_files
+					if file.name == "passwd" then
+						if not file.has_permission("r") then
+							print("Password file permission denied.")
+							continue
+						end if
+						if file.is_binary then
+							print("Password file was binary.")
+							continue
+						end if
+						if file.is_folder then
+							print("Password file was a folder.")
+							continue
+						end if						
+						exit(file.get_content)
+					end if
+				end for
+			end if
+		else if typeof(result) == "computer" then
+			// Get bank or mail or passwd file.
+			if params[2] == "bank" then
+				home = result.File("/home")
+				for folder in home.get_folders
+					if folder.name == "guest" then continue
+					for userdir in folder.get_folders
+						if userdir.name != "Config" then continue
+						for file in userdir.get_files
+							if file.name != "Bank.txt" then continue
+							if not file.has_permission("r") then
+								print("Bank file permission denied.")
+								continue
+							end if
+							if file.is_binary then
+								print("Bank file was binary.")
+								continue
+							end if
+							if file.is_folder then
+								print("Bank file was a folder.")
+								continue
+							end if
+							map = {}
+							map["user"] = folder.name
+							map["file"] = file
+							if files.len == 0 then
+								files.push(map)
+							else
+								found = false
+								for obj in files
+									if obj["user"] == map["user"] then
+										found = true
+										break
+									end if
+								end for
+								if not found then files.push(map)
+							end if
+						end for
+					end for
+				end for
+			else if params[2] == "mail" then
+				home = result.File("/home")
+				for folder in home.get_folders
+					if folder.name == "guest" then continue
+					for userdir in folder.get_folders
+						if userdir.name != "Config" then continue
+						for file in userdir.get_files
+							if file.name != "Mail.txt" then continue
+							if not file.has_permission("r") then
+								print("Mail file permission denied.")
+								continue
+							end if
+							if file.is_binary then
+								print("Mail file was binary.")
+								continue
+							end if
+							if file.is_folder then
+								print("Mail file was a folder.")
+								continue
+							end if
+							map = {}
+							map["user"] = folder.name
+							map["file"] = file
+							if files.len == 0 then
+								files.push(map)
+							else
+								found = false
+								for obj in files
+									if obj["user"] == map["user"] then
+										found = true
+										break
+									end if
+								end for
+								if not found then files.push(map)
+							end if
+						end for
+					end for
+				end for
+			else if params[2] == "passwd" then
+				file = result.File("/etc/passwd")
+				if file != null then
+					if not file.has_permission("r") then
+						print("Password file permission denied.")
+						continue
+					end if
+					if file.is_binary then
+						print("Password file was binary.")
+						continue
+					end if
+					if file.is_folder then
+						print("Password file was a folder.")
+						continue
+					end if
+					exit(file.get_content)
+				end if
+			end if
+		end if
+	end for
+end for
+
+if files.len != 0 then
+	print("Total files " + files.len + " found.")
+	for file in files
+		print(file["file"].get_content)
+	end for
+else
+	print("No files found.")
+end if
+exit("Program ended.")
+

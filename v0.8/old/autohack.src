@@ -1,0 +1,82 @@
+import_code("/home/5n4k3/source/getlib.src")
+import_code("/home/5n4k3/source/gethacks.src")
+import_code("/home/5n4k3/source/shelltype.src")
+
+if params.len > 3 then exit("Usage: autohack [addr] [port] [data]\nport = Can equal 0 for none.")
+if params.len == 2 or params.len == 3 then
+	if not is_valid_ip(params[0]) then exit("Error: Invalid IP address.")
+	if (params[1].val < 0 or params[1].val > 65535) then exit("Error: Invalid port number.")
+	if params.len == 3 and typeof(params[2]) != "string" then exit("Error: Last parameter must be a string.")
+
+	data = "pass"
+	if params.len == 3 then
+		data = params[2]
+	end if
+	
+	result = null
+	if params.len == 2 or params.len == 3 then
+		result = get_remote_hacks(params[0], params[1].val)
+	else
+		result = get_remote_hacks(params[0])
+	end if
+	if not result then exit()
+
+	shell = null
+	metax = result["dump"]
+	hacks = result["hacks"]
+	if not hacks or hacks.len == 0 then exit()
+
+	for hack in hacks
+		print("Address: " + hack["memory"])
+		for value in hack["values"]
+			print(" --> " + value)
+			result = metax.overflow(hack["memory"], value, data)
+			if not result then continue
+
+			if typeof(result) == "shell" then
+				// Do something with shell type.
+				shell = result
+				break
+			end if
+		end for
+		if shell != null then break
+	end for
+
+	// Do something with the shell.
+	if shell != null then
+		files = []
+		filenames = ["metaxploit.so", "crypto.so", "autohack", "autolocal", "autoclean"]
+		dirs = ["/lib/", parent_path(launch_path) + "/", parent_path(program_path) + "/"]
+		
+		for filename in filenames
+			for dir in dirs
+				if get_shell.host_computer.File(dir + filename) then
+					files = files + [dir + filename]
+					break
+				end if
+			end for
+		end for
+		if files.len == 0 then exit("Error: Cannot get files for transfer.")
+		
+		// Transfer files
+		for file in files
+			get_shell.scp(file, "/home/guest", shell)
+			wait(0.1)
+		end for
+		
+		// Chown files
+		pc = shell.host_computer
+		for filename in filenames
+			file = pc.File("/home/guest/" + filename)
+			if not file then continue
+			file.set_owner("guest")
+			file.set_group("guest")
+			wait(0.1)
+		end for
+		
+		shell.start_terminal
+	end if
+else
+	exit("Usage: autohack [addr] [port] [data]\nPort can be 0 for router.")
+end if
+

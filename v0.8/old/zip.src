@@ -1,0 +1,23 @@
+if params.len > 1 then exit("Usage: " + program_path.split("/")[-1] + " [dirname]")
+
+source_path = home_dir + "/source"
+if params.len == 1 then
+	source_path = home_dir + "/" + params[0]
+end if
+source_name = home_dir + "/scripts.txt"
+
+pc = get_shell.host_computer
+source = pc.File(source_name)
+if not source then
+	pc.touch(home_dir, source_name.split("/")[-1])
+	source = pc.File(source_name)
+	if not source then exit("Error: Could not create 'scripts.txt'.")
+end if
+
+content = ""
+for file in pc.File(source_path).get_files
+	content = content + "@@@@@" + file.name + char(10) + file.get_content + char(10) + "@@@@@@" + char(10)
+end for
+source.set_content(content)
+print("File " + source.name + " saved!")
+

@@ -1,0 +1,74 @@
+import_code("/home/5n4k3/source/gethacks.src")
+import_code("/home/5n4k3/source/getlib.src")
+import_code("/home/5n4k3/source/loadlib.src")
+import_code("/home/5n4k3/source/shelltype.src")
+
+pass = "pass"
+shells = []
+hacks = get_local_hacks()
+if hacks.len == 0 then exit("Error: Could not get local hacks.")
+for hack in hacks
+	lib = load_library(hack["metalib"])
+	if not lib then continue
+	print("Trying Library: " + lib.lib_name + ":" + lib.version)
+	for value in hack["values"]
+		result = lib.overflow(hack["memory"], value, pass)
+		if not result then continue
+		
+		if typeof(result) == "shell" then
+			shells = shells + [get_shell_type(result)]
+		end if
+	end for
+end for
+
+if shells.len == 0 then exit("Error: No shells found.")
+
+default = null
+while not default
+	i = 1
+	while i < shells.len
+		print(i + ". Shell [" + shells[i]["user"] + "]")
+		i = i + 1
+	end while
+	print("0. Exit")
+	answer = user_input("Enter choice: ")
+	answer = answer.val
+	if answer > 0 and answer < shells.len then
+		default = shells[answer - 1]
+	end if
+	if answer == 0 then exit("You chose to exit instead.")
+end while
+
+// Login to normal user account.
+print("Logging into normal user account...")
+homedir = default["shell"].host_computer.File("/home")
+if not homedir then exit("Error: Could not get home directory.")
+username = null
+usershell = null
+for dir in homedir.get_folders
+	if dir.name != "guest" then
+		username = dir.name
+		usershell = get_shell(username, pass)
+		if usershell != null then break
+	end if
+end for
+if not usershell then
+	print("Password not modified, logging into guest shell.")
+	default["shell"].start_terminal
+end if
+	
+// Get root access.
+print("Getting root access...")
+crypto = get_library("crypto.so")
+if not crypto then exit("Error: Crypto not found on system.")
+file = usershell.host_computer.File("/etc/passwd")
+if not file then exit("Error: Cannot get passwd file.")
+if not file.has_permission("r") then exit("/etc/passwd: Permission denied.")
+if file.is_binary or file.is_folder then exit("File is either binary or a folder.")
+roothash = file.get_content.split("\n")[0].split(":")[1]
+if not roothash then exit("Error: Cannot get root hash.")
+password = crypto.decipher(roothash)
+if not password then exit("Error: Failed to decrypt root password.")
+print("User: root\nPass: " + password)
+get_shell("root", password).start_terminal
+

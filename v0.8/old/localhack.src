@@ -1,0 +1,38 @@
+import_code("/home/5n4k3/source/getlib.src")
+import_code("/home/5n4k3/source/loadlib.src")
+
+if params.len < 3 or params.len > 4 then exit("Usage: " + program_path.split("/")[-1] + " [library] [memory] [value] [pass]")
+
+pass = "pass"
+if params.len == 4 then
+	pass = params[3]
+end if
+
+lib = load_library(params[0])
+if not lib then exit()
+
+result = null
+if params.len == 4 then
+	result = lib.overflow(params[1], params[2], params[3])
+else
+	result = lib.overflow(params[1], params[2])
+end if
+if not result then exit("Failed to exploit target.")
+
+if typeof(result) == "shell" then
+	// Get root access.
+	print("Getting root access...")
+	crypto = get_library("crypto.so")
+	if not crypto then exit("Error: Crypto not found on system.")
+	file = result.host_computer.File("/etc/passwd")
+	if not file then exit("Error: Cannot get passwd file.")
+	if not file.has_permission("r") then exit("/etc/passwd: Permission denied.")
+	if file.is_binary or file.is_folder then exit("File is either binary or a folder.")
+	roothash = file.get_content.split("\n")[0].split(":")[1]
+	if not roothash then exit("Error: Cannot get root hash.")
+	password = crypto.decipher(roothash)
+	if not password then exit("Error: Failed to decrypt root password.")
+	print("User: root\nPass: " + password)
+	get_shell("root", password).start_terminal
+end if
+

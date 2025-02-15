@@ -1,0 +1,202 @@
+// Simple get info (ie Mail, Bank, and Password File) by 5n4k3
+////////////////////////////////////////////////////////////////////
+
+mx = include_lib("/lib/metaxploit.so")
+if not mx then mx = include_lib(parent_path(program_path) + "/metaxploit.so")
+if not mx then exit("Cannot find metaxploit.so")
+
+ToFile = function(anyObject)
+    if typeof(anyObject) == "shell" then return anyObject.host_computer.File("/")
+    if typeof(anyObject) == "computer" then return anyObject.File("/")
+    if typeof(anyObject) == "file" then
+        while anyObject.parent
+            anyObject = anyObject.parent
+        end while
+        return anyObject
+    end if
+    return null
+end function
+
+CheckUser = function(anyObject)
+    rootFolder = ToFile(anyObject)
+    for folder in rootFolder.get_folders
+        if folder.name == "root" then
+            if folder.has_permission("r") and folder.has_permission("w") and folder.has_permission("x") then
+                return "root"
+            end if
+            break
+        end if
+    end for
+
+    homeFolder = ToFile(anyObject)
+    for folder in rootFolder.get_folders
+        if folder.name == "home" then
+            for userFolder in homeFolder.get_folders
+                if userFolder.name != "guest" then
+                    if userFolder.has_permission("r") and userFolder.has_permission("w") and userFolder.has_permission("x") then
+                        return userFolder.name
+                    end if
+                end if
+                break
+            end for
+            break
+        end if
+    end for
+
+    return "guest"
+end function
+
+ScanLib = function(metalib = null, metax = null)
+    if not metalib then return null
+    if not metax then return null
+
+    ret = {}
+    ret.name = metalib.lib_name
+    ret.version = metalib.version
+    ret.memorys = {}
+    memorys = metax.scan(metalib)
+    if typeof(memorys) != "list" then return null
+    for memory in memorys
+        ret.memorys[memory] = []
+        data = mx.scan_address(metalib, memory).split("Unsafe check: ").replace(char(10), "")
+        for line in data
+            if line == data[0] then continue
+            value = line[line.indexOf("<b>")+3:line.indexOf("</b>")]
+            ret.memorys[memory].push(value)
+        end for
+    end for
+    return ret
+end function
+
+if params.len < 2 or params.len > 3 then exit("Usage: " + program_path.split("/")[-1] + " [address] [port] [(opt) lanip/password]")
+
+targetIP = params[0]
+if not is_valid_ip(targetIP) then targetIP = nslookup(targetIP)
+if not is_valid_ip(targetIP) then exit("IP address invalid.")
+
+targetPort = params[1].to_int
+if typeof(targetPort) != "number" then exit("Port needs to be a number.")
+if targetPort < 0 or targetPort > 65535 then exit("Port range is 0-65535.")
+
+injectArg = ""
+if params.len > 2 then injectArg = params[2]
+
+ns = mx.net_use(targetIP, targetPort)
+if not ns then exit("Cannot connect to net session.")
+lib = ns.dump_lib
+if not lib then exit("Cannot dump library.")
+
+// Scans for remote exploits.
+exploits = ScanLib(lib, mx)
+if not exploits then exit
+
+// Use exploits in auto hack.
+objects = []
+for memory in exploits.memorys
+    for value in memory.value
+        result = lib.overflow(memory.key, value, injectArg)
+        if typeof(result) != "shell" and typeof(result) != "computer" and typeof(result) != "file" then continue
+        objects.push(result)
+    end for
+end for
+
+if objects.len == 0 then exit("No shells found.")
+
+option = 0
+while option <= 0 or option > objects.len
+    info = "ID TYPE USER"
+    i = 1
+    for object in objects
+        info = info + "\n" + str(i) + " " + typeof(object) + " " + CheckUser(object)
+        i = i + 1
+    end for
+    print(format_columns(info) + "\n")
+
+    option = user_input("Enter ID: ").to_int
+    if typeof(option) != "number" then exit("Option ID out of range.")
+end while
+
+if option <= 0 or option > objects.len then exit("Option ID out of range.")
+object = objects[option-1]
+
+if typeof(object) == "shell" then
+    object.start_terminal
+else if typeof(object) == "computer" then
+    homeFolder = object.File("/home")
+    if not homeFolder then exit("Cannot find home directory.")
+
+    result = null
+    for userFolder in homeFolder.get_folders
+        if userFolder.name != "guest" then
+            for configFolder in userFolder.get_folders
+                if configFolder.name == "Config" then
+                    result = configFolder
+                    break
+                end if
+            end for
+        end if
+    end for
+
+    file = object.File("/etc/passwd")
+    if file != null and file.has_permission("r") then
+        print("Password file:\n" + file.get_content)
+    end if
+
+    print("Mail Accounts:")
+    for file in result.get_files
+        if not file.has_permission("r") then continue
+        if file.name == "Mail.txt" then print(file.get_content)
+    end for
+
+    print("Bank Accounts:")
+    for file in result.get_files
+        if not file.has_permission("r") then continue
+        if file.name == "Bank.txt" then print(file.get_content)
+    end for
+else if typeof(object) == "file" then
+    rootFolder = object
+    while rootFolder.parent
+        rootFolder = rootFolder.parent
+    end while
+
+    result = null
+    for folder in rootFolder.get_folders
+        if folder.name == "home" then
+            for userFolder in folder.get_folders
+                if userFolder.name != "guest" then
+                    for configFolder in userFolder.get_folders
+                        if configFolder.name == "Config" then
+                            result = configFolder
+                            break
+                        end if
+                    end for
+                end if
+            end for
+        end if
+    end for
+
+    filePasswd = null
+    for folder in rootFolder.get_folders
+        if folder.name == "etc" then
+            for file in folder.get_files
+                filePasswd = file
+                break
+            end for
+        end if
+    end for
+    if filePasswd != null and filePasswd.has_permission("r") then
+        print("Passwords:\n" + filePasswd.get_content + "\n")
+    end if
+
+    print("Mail Accounts:")
+    for file in result.get_files
+        if not file.has_permission("r") then continue
+        if file.name == "Mail.txt" then print(file.get_content)
+    end for
+
+    print("Bank Accounts:")
+    for file in result.get_files
+        if not file.has_permission("r") then continue
+        if file.name == "Bank.txt" then print(file.get_content)
+    end for
+end if
